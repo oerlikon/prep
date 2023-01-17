@@ -18,19 +18,20 @@ def main(argv: List[str]) -> Tuple[Optional[int], Optional[Union[str, Exception]
     prepfile = os.path.join(path, '.prep')
 
     if not os.path.exists(prepfile):
-        return 1, 'not a prep path: {}'.format(path)
+        return 1, 'no .prep file at path: {}'.format(path)
 
-    config, err = conf.load_from(prepfile)
+    err = conf.load_from(prepfile)
     if err is not None:
         return 1, err
-    if conf is None:
+    if not conf.symbols() and not conf.actions():
         return 1, "empty prepfile?"
 
     action = argv[2] if len(argv) > 2 else None
 
     if action is None:
         import pprint
-        pprint.pprint(config)
+        pprint.pprint(conf.symbols())
+        pprint.pprint(conf.actions())
         return None, None
 
     return None, None
