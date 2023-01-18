@@ -11,7 +11,7 @@ import conf
 
 def main(argv: List[str]) -> Tuple[Optional[int], Optional[Union[str, Exception]]]:
     if len(argv) == 1:
-        p("Usage:  {} <path> <action> [<args>]".format(argv[0]))
+        p("Usage:  {} <path> [<action> [<args>]]".format(argv[0]))
         return None, None
 
     path = argv[1]
@@ -29,9 +29,11 @@ def main(argv: List[str]) -> Tuple[Optional[int], Optional[Union[str, Exception]
     action = argv[2] if len(argv) > 2 else None
 
     if action is None:
-        import pprint
-        pprint.pprint(conf.symbols())
-        pprint.pprint(conf.actions())
+        print(list(conf.symbols().keys()), conf.symbols())
+        print(list(conf.actions().keys()), conf.actions())
+        p('Available actions:')
+        for a in conf.actions().values():
+            p('\t' + a.name + ('\t({})'.format(a.using) if a.using is not None else ''))
         return None, None
 
     return None, None
