@@ -4,14 +4,14 @@ import os
 import signal
 import sys
 
-from typing import Any, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import conf
 
 
 def main(argv: List[str]) -> Tuple[Optional[int], Optional[Union[str, Exception]]]:
     if len(argv) == 1:
-        p("Usage:  {} <path> [<action> [<args>]]".format(argv[0]))
+        p("Usage:  {} <path> [<command> [<args>]]".format(argv[0]))
         return None, None
 
     path = argv[1]
@@ -26,14 +26,16 @@ def main(argv: List[str]) -> Tuple[Optional[int], Optional[Union[str, Exception]
     if not conf.symbols() and not conf.actions():
         return 1, "empty prepfile?"
 
-    action = argv[2] if len(argv) > 2 else None
+    cmds: Dict[str, object] = {}
 
-    if action is None:
+    cmd = argv[2] if len(argv) > 2 else None
+
+    if cmd is None or cmd not in cmds:
         print(list(conf.symbols().keys()), conf.symbols())
         print(list(conf.actions().keys()), conf.actions())
         p('Available actions:')
-        for a in conf.actions().values():
-            p('\t' + a.name + ('\t({})'.format(a.using) if a.using is not None else ''))
+        for action in conf.actions().values():
+            p('\t' + action.name + ('\t({})'.format(action.using) if action.using else ''))
         return None, None
 
     return None, None
