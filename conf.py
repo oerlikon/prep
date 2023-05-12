@@ -1,141 +1,124 @@
 from __future__ import annotations
 
+import os
+from collections.abc import Iterable, Iterator, Mapping
+from dataclasses import replace
+
 import yaml
 
-from dataclasses import dataclass, field, replace
-from typing import Dict, Iterator, List, Mapping, Optional
+from common import Action, Symbol
+
+_symbols: dict[str, Symbol] = {}
+_actions: dict[str, Action] = {}
 
 
-@dataclass
-class Config:
-    symbols: Dict[str, Symbol] = field(default_factory=dict)
-    actions: Dict[str, Action] = field(default_factory=dict)
-
-    def load_from(self, filename: str) -> Optional[Exception]:
-        try:
-            with open(filename, "r") as f:
-                co = yaml.safe_load(f)
-                if co is None:
-                    return None
-        except OSError as err:
-            return err
-        except yaml.YAMLError as err:
-            return err
-        try:
-            for symbol in Config.__walk_symbols(co.get('symbols')):
-                if symbol.name in self.symbols:
-                    raise Error('duplicate symbol: {}'.format(symbol.name))
-                self.symbols[symbol.name] = symbol
-            for action in Config.__walk_actions(co.get('actions')):
-                if action.name in self.actions:
-                    raise Error('duplicate action: {}'.format(action.name))
-                self.actions[action.name] = action
-        except Error as err:
-            return err
-        return None
-
-    @staticmethod
-    def __walk_symbols(node: Optional[List[Mapping[str, object]]],
-                       symbol: Optional[Symbol] = None) -> Iterator[Symbol]:
-        if node is None:
-            return
-        if symbol is None:
-            symbol = Symbol('')
-        for item in node:
-            name, symbols = item.get('name'), item.get('symbols')
-            if name is not None and symbols is not None:
-                raise Error('both name and more symbols in same node with name: {}'.format(name))
-            for k, v in item.items():
-                if k == 'name' or k == 'symbols':
-                    pass
-                elif k == 'market':
-                    if not isinstance(v, str):
-                        raise TypeError
-                    symbol.market = v
-                elif k == 'time':
-                    if not isinstance(v, str):
-                        raise TypeError
-                    symbol.time = v
-                elif k == 'start':
-                    if not isinstance(v, str):
-                        raise TypeError
-                    symbol.start = v
-                else:
-                    raise Error('unexpected key: {}'.format(k))
-            if name is not None:
-                yield replace(symbol, name=name)
-            elif symbols is not None:
-                if not isinstance(symbols, list):
-                    raise TypeError
-                yield from Config.__walk_symbols(symbols, replace(symbol))
-
-    @staticmethod
-    def __walk_actions(node: Optional[List[Mapping[str, object]]],
-                       action: Optional[Action] = None) -> Iterator[Action]:
-        if node is None:
-            return
-        if action is None:
-            action = Action('')
-        for item in node:
-            name, actions = item.get('name'), item.get('actions')
-            if name is not None and actions is not None:
-                raise Error('both name and more actions in same node with name: {}'.format(name))
-            for k, v in item.items():
-                if k == 'name' or k == 'actions':
-                    pass
-                elif k == 'using':
-                    if not isinstance(v, str):
-                        raise TypeError
-                    action.using = v
-                else:
-                    raise Error('unexpected key: {}'.format(k))
-            if name is not None:
-                yield replace(action, name=name)
-            elif actions is not None:
-                if not isinstance(actions, list):
-                    raise TypeError
-                yield from Config.__walk_actions(actions, replace(action))
+def symbols() -> dict[str, Symbol]:
+    return _symbols
 
 
-@dataclass
-class Symbol:
-    name: str
-    market: Optional[str] = None
-    time: Optional[str] = None
-    start: Optional[str] = None
-
-
-@dataclass
-class Action:
-    name: str
-    using: Optional[str] = None
+def actions() -> dict[str, Action]:
+    return _actions
 
 
 class Error(Exception):
-
     def __init__(self, message: str):
-        super().__init__('config: ' + message)
+        super().__init__("config: " + message)
 
 
-_conf: Optional[Config] = None
+def load(filename: str | os.PathLike[str]) -> Exception | None:
+    try:
+        with open(filename, "r") as f:
+            co = yaml.safe_load(f)
+            if co is None:
+                return None
+    except OSError as err:
+        return err
+    except yaml.YAMLError as err:
+        return err
+
+    symbols: dict[str, Symbol] = {}
+    actions: dict[str, Action] = {}
+
+    try:
+        for symbol in _walk_symbols(co.get("symbols")):
+            if symbol.name in symbols:
+                raise Error(f"duplicate symbol: {symbol.name}")
+            symbols[symbol.name] = symbol
+        for action in _walk_actions(co.get("actions")):
+            if action.name in actions:
+                raise Error(f"duplicate action: {action.name}")
+            actions[action.name] = action
+    except Error as err:
+        return err
+
+    global _symbols, _actions
+    _symbols, _actions = symbols, actions
+    return None
 
 
-def load_from(filename: str) -> Optional[Exception]:
-    global _conf
-    if _conf is None:
-        _conf = Config()
-    return _conf.load_from(filename)
+def _walk_symbols(
+    node: Iterable[Mapping[str, object]] | None,
+    symbol: Symbol | None = None,
+) -> Iterator[Symbol]:
+    if node is None:
+        return
+    if symbol is None:
+        symbol = Symbol("")
+    for item in node:
+        name, symbols = item.get("name"), item.get("symbols")
+        if name is not None and symbols is not None:
+            raise Error(f"both name and more symbols in same node with name: {name}")
+        for k, v in item.items():
+            match k:
+                case "name" | "symbols":
+                    pass
+                case "market":
+                    if not isinstance(v, str):
+                        raise TypeError
+                    symbol.market = v
+                case "time":
+                    if not isinstance(v, str):
+                        raise TypeError
+                    symbol.time = v
+                case "start":
+                    if not isinstance(v, str):
+                        raise TypeError
+                    symbol.start = v
+                case _:
+                    raise Error(f"unexpected key: {k}")
+        if name is not None:
+            yield replace(symbol, name=name)
+        elif symbols is not None:
+            if not isinstance(symbols, Iterable):
+                raise TypeError
+            yield from _walk_symbols(symbols, replace(symbol))
 
 
-def symbols() -> Dict[str, Symbol]:
-    global _conf
-    if _conf is None:
-        return {}
-    return _conf.symbols
-
-
-def actions() -> Dict[str, Action]:
-    global _conf
-    if _conf is None:
-        return {}
-    return _conf.actions
+def _walk_actions(
+    node: Iterable[Mapping[str, object]] | None,
+    action: Action | None = None,
+) -> Iterator[Action]:
+    if node is None:
+        return
+    if action is None:
+        action = Action("")
+    for item in node:
+        name, actions = item.get("name"), item.get("actions")
+        if name is not None and actions is not None:
+            raise Error(f"both name and more actions in same node with name: {name}")
+        for k, v in item.items():
+            match k:
+                case "name" | "actions":
+                    pass
+                case "using":
+                    if not isinstance(v, str):
+                        raise TypeError
+                    action.using = v
+                case _:
+                    raise Error(f"unexpected key: {k}")
+        if name is not None:
+            yield replace(action, name=name)
+        elif actions is not None:
+            if not isinstance(actions, Iterable):
+                raise TypeError
+            yield from _walk_actions(actions, replace(action))
