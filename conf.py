@@ -6,7 +6,7 @@ from dataclasses import replace
 
 import yaml
 
-from common import Action, Symbol
+from common import Action, Symbol, tzinfo
 
 _symbols: dict[str, Symbol] = {}
 _actions: dict[str, Action] = {}
@@ -29,21 +29,21 @@ def load(filename: str | os.PathLike[str]) -> Exception | None:
     try:
         with open(filename, "r") as f:
             co = yaml.safe_load(f)
-            if co is None:
-                return None
     except OSError as err:
         return err
     except yaml.YAMLError as err:
         return err
+
+    co = co if co is not None else {}
 
     symbols: dict[str, Symbol] = {}
     actions: dict[str, Action] = {}
 
     try:
         for symbol in _walk_symbols(co.get("symbols")):
-            if symbol.name in symbols:
+            if symbol.name.lower() in symbols:
                 raise Error(f"duplicate symbol: {symbol.name}")
-            symbols[symbol.name] = symbol
+            symbols[symbol.name.lower()] = symbol
         for action in _walk_actions(co.get("actions")):
             if action.name in actions:
                 raise Error(f"duplicate action: {action.name}")
@@ -79,6 +79,8 @@ def _walk_symbols(
                 case "time":
                     if not isinstance(v, str):
                         raise TypeError
+                    if tzinfo(v) is None:
+                        raise Error(f"unknown time zone: {v}")
                     symbol.time = v
                 case "start":
                     if not isinstance(v, str):

@@ -1,4 +1,4 @@
-from typing import Any, Tuple, Type
+from typing import Any, Tuple
 
 from common import Cmd
 

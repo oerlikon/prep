@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any, Sequence, Tuple
 
 import conf
-from common import Action, Cmd
+from common import Action, Cmd, p
 
 
 def main(argv: Sequence[str]) -> Tuple[int | None, str | Exception | None]:
@@ -45,9 +45,9 @@ def main(argv: Sequence[str]) -> Tuple[int | None, str | Exception | None]:
         return 1, None
 
     if isinstance(cmds[cmd], ActionCmd):
-        return cmds[cmd].run(*argv[3:], path=path, symbols=list(conf.symbols().values()))
+        return cmds[cmd].run(*argv[3:], path=path, symbols=conf.symbols())
 
-    return None, None
+    raise NotImplementedError
 
 
 class ActionCmd:
@@ -79,10 +79,6 @@ def list_cmds(cmds: dict[str, Cmd]) -> str:
         return "\t" + name
 
     return "\n".join(s(name, cmd) for name, cmd in cmds.items())
-
-
-def p(*what: Any, **mods: Any) -> None:
-    print(*what, **mods, file=sys.stderr, flush=True)
 
 
 if __name__ == "__main__":
