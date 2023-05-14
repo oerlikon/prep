@@ -10,7 +10,7 @@ class Status(Cmd):
 
 class GC(Cmd):
     def run(self, *args: str, **kwargs: Any) -> Tuple[int | None, str | Exception | None]:
-        return NotImplementedError
+        raise NotImplementedError
 
 
 def getcmd(name: str) -> Tuple[Cmd | None, str | None]:

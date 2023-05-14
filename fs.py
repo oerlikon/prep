@@ -34,7 +34,7 @@ class Store:
                 return dt.strftime("%Y-%m-%dT%H:%M:%SZ")
             return dt.isoformat("T", "seconds")
 
-        df[df.columns[0]] = df[df.columns[0]].map(ts)
+        df[df.columns[0]] = df.iloc[:, 0].map(ts)
         if block.market:
             df.insert(0, "Symbol", f"{block.symbol}:{block.market}")
         else:
