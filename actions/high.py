@@ -51,7 +51,9 @@ class Import(Cmd):
             df["Date"] = pd.to_datetime(df["Date"], format="%Y%m%d %H:%M")
             df["Date"] = df["Date"].dt.tz_localize(tzinfo(symbol.time))
         for date, gf in df.groupby(df["Date"].dt.date):
-            store.put(Block(symbol.name, symbol.market, cast(datetime.date, date), gf))
+            err = store.put(Block(symbol.name, symbol.market, cast(datetime.date, date), gf))
+            if err is not None:
+                return err
         return None
 
 
