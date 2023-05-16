@@ -5,12 +5,12 @@ from common import Cmd
 
 class Status(Cmd):
     def run(self, *args: str, **kwargs: Any) -> Tuple[int | None, str | Exception | None]:
-        raise NotImplementedError
+        return 1, "not implemented"
 
 
 class GC(Cmd):
     def run(self, *args: str, **kwargs: Any) -> Tuple[int | None, str | Exception | None]:
-        raise NotImplementedError
+        return 1, "not implemented"
 
 
 def getcmd(name: str) -> Tuple[Cmd | None, str | None]:

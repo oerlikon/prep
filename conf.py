@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import datetime
 import os
 from collections.abc import Iterable, Iterator, Mapping
 from dataclasses import replace
@@ -73,21 +74,33 @@ def _walk_symbols(
                 case "name" | "symbols":
                     pass
                 case "market":
-                    if not isinstance(v, str):
+                    if type(v) != str:
                         raise TypeError
                     symbol.market = v
                 case "time":
-                    if not isinstance(v, str):
+                    if type(v) != str:
                         raise TypeError
                     if tzinfo(v) is None:
                         raise Error(f"unknown time zone: {v}")
                     symbol.time = v
                 case "start":
-                    if not isinstance(v, str):
+                    if type(v) == int:
+                        symbol.start = datetime.datetime(v, 1, 1)
+                    elif type(v) == str:
+                        symbol.start = datetime.datetime.fromisoformat(v)
+                    elif type(v) == datetime.date:
+                        symbol.start = datetime.datetime.combine(v, datetime.time.min)
+                    elif type(v) == datetime.datetime:
+                        symbol.start = v
+                    else:
                         raise TypeError
-                    symbol.start = v
                 case _:
                     raise Error(f"unexpected key: {k}")
+        if symbol.start is not None and symbol.start.tzinfo is None:
+            if symbol.time is not None:
+                symbol.start = symbol.start.replace(tzinfo=tzinfo(symbol.time))
+            else:
+                symbol.start = symbol.start.replace(tzinfo=datetime.timezone.utc)
         if name is not None:
             yield replace(symbol, name=name)
         elif symbols is not None:
@@ -113,7 +126,7 @@ def _walk_actions(
                 case "name" | "actions":
                     pass
                 case "using":
-                    if not isinstance(v, str):
+                    if type(v) != str:
                         raise TypeError
                     action.using = v
                 case _:

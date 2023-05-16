@@ -1,3 +1,4 @@
+import datetime
 import sys
 from dataclasses import dataclass
 from functools import lru_cache
@@ -10,7 +11,7 @@ class Symbol:
     name: str
     market: str | None = None
     time: str | None = None
-    start: str | None = None
+    start: datetime.datetime | None = None
 
 
 @dataclass

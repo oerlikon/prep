@@ -42,15 +42,15 @@ class Import(Cmd):
     @staticmethod
     def __process_arg(arg: str, symbol: Symbol, store: Store) -> str | Exception | None:
         try:
-            df = pd.read_csv(arg, header=0, usecols=range(5))
-        except Exception as e:
+            df = pd.read_csv(arg, skiprows=1, header=None, usecols=range(5))
+        except OSError as e:
             return e
         if symbol.time is None:
-            df["Date"] = pd.to_datetime(df["Date"], format="%Y%m%d %H:%M", utc=True)
+            df[0] = pd.to_datetime(df[0], format="%Y%m%d %H:%M", utc=True)
         else:
-            df["Date"] = pd.to_datetime(df["Date"], format="%Y%m%d %H:%M")
-            df["Date"] = df["Date"].dt.tz_localize(tzinfo(symbol.time))
-        for date, gf in df.groupby(df["Date"].dt.date):
+            df[0] = pd.to_datetime(df[0], format="%Y%m%d %H:%M")
+            df[0] = df[0].dt.tz_localize(tzinfo(symbol.time))
+        for date, gf in df.groupby(df[0].dt.date):
             err = store.put(Block(symbol.name, symbol.market, cast(datetime.date, date), gf))
             if err is not None:
                 return err

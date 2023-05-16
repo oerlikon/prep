@@ -30,13 +30,13 @@ class Store:
         df = block.records.copy()
 
         def ts(dt: datetime.datetime) -> str:
-            if dt.tzinfo is None or dt.tzinfo == self._utc:
+            if dt.tzinfo is None or dt.tzinfo is datetime.timezone.utc or dt.tzinfo is self._utc:
                 return dt.strftime("%Y-%m-%dT%H:%M:%SZ")
             return dt.isoformat("T", "seconds")
 
         df[df.columns[0]] = df.iloc[:, 0].map(ts)
         if block.market:
-            df.insert(0, "Symbol", f"{block.symbol}:{block.market}")
+            df.insert(0, "Symbol", f"{block.market}:{block.symbol}")
         else:
             df.insert(0, "Symbol", block.symbol)
         return self.__store(block, df)
