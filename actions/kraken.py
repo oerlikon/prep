@@ -48,7 +48,8 @@ class Import(Cmd):
 
     @staticmethod
     def __process_file(file: IO[bytes], symbol: Symbol, store: Store) -> str | Exception | None:
-        df = pd.read_csv(file, header=None, usecols=range(6))
+        df = pd.read_csv(file, dtype="str", header=None, usecols=range(6))
+        df[0] = df[0].astype(int)
         start = int(symbol.start.timestamp()) if symbol.start is not None else 0
         df = df[df[0] >= start]
         df[0] = pd.to_datetime(df[0], unit="s", utc=True)

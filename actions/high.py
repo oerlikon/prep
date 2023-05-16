@@ -42,7 +42,7 @@ class Import(Cmd):
     @staticmethod
     def __process_arg(arg: str, symbol: Symbol, store: Store) -> str | Exception | None:
         try:
-            df = pd.read_csv(arg, skiprows=1, header=None, usecols=range(5))
+            df = pd.read_csv(arg, dtype="str", skiprows=1, header=None, usecols=range(5))
         except OSError as e:
             return e
         if symbol.time is None:
