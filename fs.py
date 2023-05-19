@@ -1,5 +1,4 @@
 import datetime
-import hashlib
 import os
 from dataclasses import dataclass
 from pathlib import Path
@@ -46,14 +45,8 @@ class Store:
         path = self._path / f"{block.start.year}" / f"{block.start.month:02d}" / f"{block.start.day:02d}"
         path.mkdir(mode=0o755, parents=True, exist_ok=True)
         path = path / self.__make_filename(block.symbol, block.market, block.start)
-        if not path.exists():
+        if not path.exists() or csv != path.read_bytes():
             path.write_bytes(csv)
-            return None
-        csv_sha1 = hashlib.sha1(csv).hexdigest()
-        file_sha1 = hashlib.sha1(path.read_bytes()).hexdigest()
-        if csv_sha1 == file_sha1:
-            return None
-        path.write_bytes(csv)
         return None
 
     @staticmethod
