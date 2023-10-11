@@ -102,6 +102,8 @@ def _walk_symbols(
             else:
                 symbol.start = symbol.start.replace(tzinfo=datetime.timezone.utc)
         if name is not None:
+            if type(name) != str:
+                raise TypeError
             yield replace(symbol, name=name)
         elif symbols is not None:
             if not isinstance(symbols, Iterable):
@@ -132,6 +134,8 @@ def _walk_actions(
                 case _:
                     raise Error(f"unexpected key: {k}")
         if name is not None:
+            if type(name) != str:
+                raise TypeError
             yield replace(action, name=name)
         elif actions is not None:
             if not isinstance(actions, Iterable):
