@@ -36,19 +36,23 @@ class Import(Cmd):
 
     @staticmethod
     def __parse_arg(arg: str) -> Tuple[str, str | Exception | None]:
-        return Path(arg).stem, None
+        symbol, sep, _ = Path(arg).stem.partition("_")
+        if sep != "_":
+            return "", f"invalid arg: {arg}"
+        return symbol, None
 
     @staticmethod
     def __process_arg(arg: str, symbol: Symbol, store: Store) -> str | Exception | None:
         try:
-            df = pd.read_csv(arg, dtype="str", skiprows=1, header=None, usecols=range(5))
+            df = pd.read_csv(arg, sep="\t", dtype="str", skiprows=1, header=None, usecols=range(8))
         except OSError as e:
             return e
         if symbol.time is None:
-            df[0] = pd.to_datetime(df[0], format="%Y%m%d %H:%M", utc=True)
+            df[0] = pd.to_datetime(df[0] + " " + df[1], format="%Y.%m.%d %H:%M:%S", utc=True)
         else:
-            df[0] = pd.to_datetime(df[0], format="%Y%m%d %H:%M")
+            df[0] = pd.to_datetime(df[0] + " " + df[1], format="%Y.%m.%d %H:%M:%S")
             df[0] = df[0].dt.tz_localize(tzinfo(symbol.time))
+        df = df.drop(columns=[1, 6])
         for date, gf in df.groupby(df[0].dt.date):
             err = store.put(Block(symbol.name, symbol.market, date, gf))
             if err is not None:

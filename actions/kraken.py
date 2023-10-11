@@ -1,7 +1,6 @@
-import datetime
 import os
 import zipfile
-from typing import IO, Any, Tuple, cast
+from typing import IO, Any, Tuple
 
 import pandas as pd
 
@@ -56,7 +55,7 @@ class Import(Cmd):
         if symbol.time is not None:
             df[0] = df[0].dt.tz_convert(tzinfo(symbol.time))
         for date, gf in df.groupby(df[0].dt.date):
-            err = store.put(Block(symbol.name, symbol.market, cast(datetime.date, date), gf))
+            err = store.put(Block(symbol.name, symbol.market, date, gf))
             if err is not None:
                 return err
         return None
