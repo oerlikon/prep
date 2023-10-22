@@ -36,8 +36,8 @@ class Import(Cmd):
 
     @staticmethod
     def __parse_arg(arg: str) -> Tuple[str, str | Exception | None]:
-        symbol, sep, _ = Path(arg).stem.partition("_")
-        if sep != "_":
+        symbol, sep, _ = Path(arg).stem.partition("_M1_")
+        if sep != "_M1_":
             return "", f"invalid arg: {arg}"
         return symbol, None
 
@@ -52,7 +52,12 @@ class Import(Cmd):
         else:
             df[0] = pd.to_datetime(df[0] + " " + df[1], format="%Y.%m.%d %H:%M:%S")
             df[0] = df[0].dt.tz_localize(tzinfo(symbol.time))
-        df = df.drop(columns=[1, 6])
+        df[7] = [b if b != "0" else a for a, b in df[[6, 7]].to_numpy()]
+        df[7] = df[7].replace("0", "")
+        if df[7].ne("").any():
+            df = df.drop(columns=[1, 6])
+        else:
+            df = df.drop(columns=[1, 6, 7])
         for date, gf in df.groupby(df[0].dt.date):
             err = store.put(Block(symbol.name, symbol.market, date, gf))
             if err is not None:
