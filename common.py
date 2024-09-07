@@ -21,8 +21,7 @@ class Action:
 
 
 class Cmd(Protocol):
-    def run(self, *args: str, **kwargs: Any) -> Tuple[int | None, str | Exception | None]:
-        ...
+    def run(self, *args: str, **kwargs: Any) -> Tuple[int | None, str | Exception | None]: ...
 
 
 @lru_cache
