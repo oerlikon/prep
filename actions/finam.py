@@ -58,8 +58,8 @@ class Import(Cmd):
             df = df.drop(columns=[1, 6])
         else:
             df = df.drop(columns=[1, 6, 7])
-        for date, gf in df.groupby(df[0].dt.date):
-            err = store.put(Block(symbol.name, symbol.market, date, gf))
+        for ts, gf in df.groupby(pd.Grouper(key=0, freq="MS")):
+            err = store.put(Block(symbol.name, symbol.market, ts.date(), gf))  # type: ignore[attr-defined]
             if err is not None:
                 return err
         return None

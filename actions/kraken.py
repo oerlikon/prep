@@ -54,8 +54,8 @@ class Import(Cmd):
         df[0] = pd.to_datetime(df[0], unit="s", utc=True)
         if symbol.time is not None:
             df[0] = df[0].dt.tz_convert(tzinfo(symbol.time))
-        for date, gf in df.groupby(df[0].dt.date):
-            err = store.put(Block(symbol.name, symbol.market, date, gf))
+        for ts, gf in df.groupby(pd.Grouper(key=0, freq="MS")):
+            err = store.put(Block(symbol.name, symbol.market, ts.date(), gf))  # type: ignore[attr-defined]
             if err is not None:
                 return err
         return None
