@@ -5,8 +5,6 @@ from pathlib import Path
 
 import pandas as pd
 
-from common import tzinfo
-
 
 @dataclass
 class Block:
@@ -23,13 +21,12 @@ class Block:
 class Store:
     def __init__(self, path: str | os.PathLike[str]):
         self._path = Path(path)
-        self._utc = tzinfo("UTC")
 
     def put(self, block: Block) -> str | Exception | None:
         df = block.records.copy()
 
         def ts(dt: datetime.datetime) -> str:
-            if dt.tzinfo is None or dt.tzinfo is datetime.timezone.utc or dt.tzinfo is self._utc:
+            if dt.tzinfo is None or dt.tzinfo is datetime.timezone.utc or dt.tzname() in ("GMT", "UTC"):
                 return dt.strftime("%Y-%m-%dT%H:%M:%SZ")
             return dt.isoformat("T", "seconds")
 
