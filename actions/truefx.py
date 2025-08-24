@@ -65,7 +65,7 @@ class Import(Cmd):
             )
             .with_columns(pl.col("price").cast(pl.Float32).alias("price_value"))
         )
-        df = df.group_by_dynamic(index_column="dt", every="1m", closed="left").agg(
+        df = df.group_by_dynamic(index_column="dt", every="23s", closed="left").agg(
             pl.col("price").first().alias("open"),
             pl.col("price")
             .filter(pl.col("price_value") == pl.col("price_value").max())
@@ -77,11 +77,9 @@ class Import(Cmd):
             .alias("low"),
             pl.col("price").last().alias("close"),
         )
-        for ts, gf in df.group_by_dynamic(index_column="dt", every="1mo", closed="left"):
-            dt, pf = ts[0].date(), gf.to_pandas()  # type: ignore[attr-defined]
-            err = store.put(Block(symbol.name, symbol.market, dt, pf))
-            if err is not None:
-                return err
+        err = store.put(Block(symbol.name, symbol.market, df.item(1, "dt"), df.to_pandas()))
+        if err is not None:
+            return err
         return None
 
 
