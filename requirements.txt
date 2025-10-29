@@ -1,3 +1,0 @@
-pandas>=2.2.2
-PyYAML>=6.0.2
-tzdata>=2024.1

@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any, Sequence, Tuple
 
 import conf
-from common import Action, Cmd, p
+from common import Action, p
 
 
 def main(argv: Sequence[str]) -> Tuple[int | None, str | Exception | None]:
@@ -27,58 +27,42 @@ def main(argv: Sequence[str]) -> Tuple[int | None, str | Exception | None]:
     if not conf.symbols() and not conf.actions():
         return 1, "empty prepfile?"
 
-    cmd = argv[2] if len(argv) > 2 else None
+    actions: dict[str, Action] = {name: bind(action) for name, action in conf.actions().items()}
 
-    cmds: dict[str, Cmd] = {
-        "st": ActionCmd(Action("st")),
-        "gc": ActionCmd(Action("gc")),
-    }
-    cmds |= {name: ActionCmd(action) for name, action in conf.actions().items()}
+    cmd = argv[2] if len(argv) > 2 else None
 
     if cmd is None:
         p("Available commands:")
-        p(list_cmds(cmds))
+
+        def s(action: Action) -> str:
+            if action.using:
+                return "\t" + action.name + f"\t({action.using})"
+            return "\t" + action.name
+
+        p("\n".join(s(action) for action in actions.values()))
         return None, None
 
-    if cmd not in cmds:
+    if cmd not in actions:
         p(f"Unknown command: {cmd}")
         return 1, None
 
-    if isinstance(cmds[cmd], ActionCmd):
-        return cmds[cmd].run(*argv[3:], path=path, symbols=conf.symbols())
-
-    raise NotImplementedError
+    return actions[cmd].run(*argv[3:], path=path, symbols=conf.symbols())
 
 
-class ActionCmd:
-    def __init__(self, action: Action):
-        assert action is not None
-        self._action = action
-
-    @property
-    def action(self) -> Action:
-        return self._action
-
-    def run(self, *args: str, **kwargs: Any) -> Tuple[int | None, str | Exception | None]:
-        mod_name = self._action.using if self._action.using else "generic"
+def bind(action: Action) -> Action:
+    def run(self: Action, *args: str, **kwargs: Any) -> Tuple[int | None, str | Exception | None]:
+        mod_name = self.using if self.using else "generic"
         try:
             mod = importlib.import_module("actions." + mod_name)
         except (ImportError, ModuleNotFoundError) as e:
             return 2, e
-        mod_cmd, err = mod.getcmd(self._action.name)
+        mod_cmd, err = mod.get_cmd(self.name)
         if err is not None:
             return 2, err
-        ret, err = mod_cmd.run(*args, **kwargs)
-        return ret, err
+        return mod_cmd.run(*args, **kwargs)
 
-
-def list_cmds(cmds: dict[str, Cmd]) -> str:
-    def s(name: str, cmd: Cmd) -> str:
-        if isinstance(cmd, ActionCmd) and cmd.action.using:
-            return "\t" + name + f"\t({cmd.action.using})"
-        return "\t" + name
-
-    return "\n".join(s(name, cmd) for name, cmd in cmds.items())
+    action.fn = run
+    return action
 
 
 if __name__ == "__main__":
@@ -88,8 +72,7 @@ if __name__ == "__main__":
         ret, err = main(sys.argv)
         if err is not None:
             p("Error:", err)
-        if ret:
-            exit(ret)
+        if ret is not None:
+            sys.exit(ret)
     except KeyboardInterrupt:
         p()
-    sys.stderr.close()

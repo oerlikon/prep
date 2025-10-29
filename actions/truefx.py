@@ -83,7 +83,7 @@ class Import(Cmd):
         return None
 
 
-def getcmd(name: str) -> Tuple[Cmd | None, str | None]:
+def get_cmd(name: str) -> Tuple[Cmd | None, str | None]:
     match name:
         case "import":
             return Import(), None

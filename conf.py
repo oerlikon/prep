@@ -7,7 +7,7 @@ from dataclasses import replace
 
 import yaml
 
-from common import Action, Symbol, tzinfo
+from common import Action, Symbol, timezone
 
 _symbols: dict[str, Symbol] = {}
 _actions: dict[str, Action] = {}
@@ -80,7 +80,7 @@ def _walk_symbols(
                 case "time":
                     if type(v) != str:
                         raise TypeError
-                    if tzinfo(v) is None:
+                    if timezone(v) is None:
                         raise Error(f"unknown time zone: {v}")
                     symbol.time = v
                 case "start":
@@ -98,7 +98,7 @@ def _walk_symbols(
                     raise Error(f"unexpected key: {k}")
         if symbol.start is not None and symbol.start.tzinfo is None:
             if symbol.time is not None:
-                symbol.start = symbol.start.replace(tzinfo=tzinfo(symbol.time))
+                symbol.start = symbol.start.replace(tzinfo=timezone(symbol.time))
             else:
                 symbol.start = symbol.start.replace(tzinfo=datetime.timezone.utc)
         if name is not None:

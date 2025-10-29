@@ -1,8 +1,9 @@
 import datetime
 import sys
+from collections.abc import Callable
 from dataclasses import dataclass
 from functools import lru_cache
-from typing import Any, Protocol, Tuple
+from typing import Protocol, Tuple
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 
@@ -14,25 +15,31 @@ class Symbol:
     start: datetime.datetime | None = None
 
 
+class Cmd(Protocol):
+    def run(self, *args, **kwargs) -> Tuple[int | None, str | Exception | None]: ...
+
+
 @dataclass
-class Action:
+class Action(Cmd):
     name: str
     using: str | None = None
+    fn: Callable[..., Tuple[int | None, str | Exception | None]] | None = None
 
-
-class Cmd(Protocol):
-    def run(self, *args: str, **kwargs: Any) -> Tuple[int | None, str | Exception | None]: ...
+    def run(self, *args, **kwargs) -> Tuple[int | None, str | Exception | None]:
+        if self.fn is not None:
+            return self.fn(self, *args, **kwargs)
+        return None, None
 
 
 @lru_cache
-def tzinfo(tzname: str) -> ZoneInfo | None:
+def timezone(key: str) -> ZoneInfo | None:
     try:
-        return ZoneInfo(tzname)
+        return ZoneInfo(key)
     except ZoneInfoNotFoundError:
         return None
 
 
-def p(*what: Any, **mods: Any) -> None:
+def p(*what, **mods) -> None:
     print(*what, **mods, file=sys.stderr, flush=True)
 
 
