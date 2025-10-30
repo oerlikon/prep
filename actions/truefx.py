@@ -1,6 +1,5 @@
 import os
 from pathlib import Path
-from typing import Tuple
 
 import numpy as np
 import polars as pl
@@ -10,7 +9,7 @@ from fs import Block, Store
 
 
 class Import(Cmd):
-    def run(self, *args, **kwargs) -> Tuple[int | None, str | Exception | None]:
+    def run(self, *args, **kwargs) -> tuple[int | None, str | Exception | None]:
         symbols: dict[str, Symbol] | None = kwargs.get("symbols")
         if not symbols:
             return None, None
@@ -18,15 +17,12 @@ class Import(Cmd):
         path = path if path is not None else ""
         store = Store(path)
         for arg in args:
-            sym = self.__parse_arg(arg)
+            sym = self._parse_arg(arg)
             if sym.lower() not in symbols:
                 p(f"Skipping {arg}")
                 continue
             p(f"Processing {arg}... ", end="")
-            err = self.__process_arg(arg, symbols[sym.lower()], store)
-            if isinstance(err, FileNotFoundError):
-                p("file not found")
-                return 1, None
+            err = self._process_arg(arg, symbols[sym.lower()], store)
             if err is not None:
                 p()
                 return 2, err
@@ -34,12 +30,12 @@ class Import(Cmd):
         return None, None
 
     @staticmethod
-    def __parse_arg(arg: str) -> str:
+    def _parse_arg(arg: str) -> str:
         sym, _, _ = Path(arg).stem.partition("-")
         return sym
 
     @staticmethod
-    def __process_arg(arg: str, symbol: Symbol, store: Store) -> str | Exception | None:
+    def _process_arg(arg: str, symbol: Symbol, store: Store) -> str | Exception | None:
         try:
             df = pl.read_csv(
                 arg,
@@ -81,7 +77,7 @@ class Import(Cmd):
         return None
 
 
-def get_cmd(name: str) -> Tuple[Cmd | None, str | None]:
+def get_cmd(name: str) -> tuple[Cmd | None, str | None]:
     match name:
         case "import":
             return Import(), None
