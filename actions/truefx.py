@@ -1,6 +1,6 @@
 import os
 from pathlib import Path
-from typing import Any, Tuple
+from typing import Tuple
 
 import numpy as np
 import polars as pl
@@ -10,7 +10,7 @@ from fs import Block, Store
 
 
 class Import(Cmd):
-    def run(self, *args: str, **kwargs: Any) -> Tuple[int | None, str | Exception | None]:
+    def run(self, *args, **kwargs) -> Tuple[int | None, str | Exception | None]:
         symbols: dict[str, Symbol] | None = kwargs.get("symbols")
         if not symbols:
             return None, None
@@ -18,9 +18,7 @@ class Import(Cmd):
         path = path if path is not None else ""
         store = Store(path)
         for arg in args:
-            sym, err = self.__parse_arg(arg)
-            if err is not None:
-                return 1, err
+            sym = self.__parse_arg(arg)
             if sym.lower() not in symbols:
                 p(f"Skipping {arg}")
                 continue
@@ -36,9 +34,9 @@ class Import(Cmd):
         return None, None
 
     @staticmethod
-    def __parse_arg(arg: str) -> Tuple[str, str | Exception | None]:
+    def __parse_arg(arg: str) -> str:
         sym, _, _ = Path(arg).stem.partition("-")
-        return sym, None
+        return sym
 
     @staticmethod
     def __process_arg(arg: str, symbol: Symbol, store: Store) -> str | Exception | None:
@@ -77,7 +75,7 @@ class Import(Cmd):
             .alias("low"),
             pl.col("price").last().alias("close"),
         )
-        err = store.put(Block(symbol.name, symbol.market, df.item(1, "dt"), df.to_pandas()))
+        err = store.put(Block(symbol.name, symbol.market, df.item(1, "dt"), df))
         if err is not None:
             return err
         return None

@@ -4,7 +4,7 @@ import importlib
 import signal
 import sys
 from pathlib import Path
-from typing import Any, Sequence, Tuple
+from typing import Sequence, Tuple
 
 import conf
 from common import Action, p
@@ -50,7 +50,7 @@ def main(argv: Sequence[str]) -> Tuple[int | None, str | Exception | None]:
 
 
 def bind(action: Action) -> Action:
-    def run(self: Action, *args: str, **kwargs: Any) -> Tuple[int | None, str | Exception | None]:
+    def run(self: Action, *args, **kwargs) -> Tuple[int | None, str | Exception | None]:
         mod_name = self.using if self.using else "generic"
         try:
             mod = importlib.import_module("actions." + mod_name)

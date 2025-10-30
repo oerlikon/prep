@@ -23,15 +23,15 @@ jobs:
       - name: pip install deps
         run: |
           python -m pip install --upgrade pip
-          python -m pip install pandas polars pyyaml
+          python -m pip install numpy polars pyyaml
           python -m pip install autoflake black isort pyright
-          python -m pip install mypy types-pyyaml pandas-stubs
+          python -m pip install mypy types-pyyaml
       - name: autoflake
         run: autoflake --remove-all-unused-imports --remove-unused-variables --check-diff --quiet -r .
       - name: isort
         run: isort --check --diff -q .
       - name: black
-        run: black --check -l 108 .
+        run: black --check -l 108 -v .
       - name: pyright
         run: pyright .
       - name: mypy
