@@ -20,7 +20,9 @@ class Import(Cmd):
         path = path if path is not None else ""
         store = Store(path)
         for arg in args:
-            sym = self._parse_arg(arg)
+            sym, err = self._parse_arg(arg)
+            if err is not None:
+                return 1, err
             if sym.lower() not in symbols:
                 p(f"Skipping {arg}")
                 continue
@@ -33,24 +35,24 @@ class Import(Cmd):
         return None, None
 
     @staticmethod
-    def _parse_arg(arg: str) -> str:
+    def _parse_arg(arg: str) -> tuple[str, Exception | None]:
         try:
-            market, sym, _ = Path(arg).stem.split(".", maxsplit=2)
-            if market == "kraken":
-                return sym
-            return ""
-        except ValueError:
-            return ""
+            prefix, sym, _ = Path(arg).stem.split(".", maxsplit=2)
+            if prefix == "kraken":
+                return sym, None
+            return "", ValueError(f"unexpected: {arg}")
+        except ValueError as err:
+            return "", err
 
     @staticmethod
-    def _process_arg(arg: str, symbol: Symbol, store: Store) -> str | Exception | None:
+    def _process_arg(arg: str, symbol: Symbol, store: Store) -> Exception | None:
         try:
             reader = pl.read_csv_batched(
                 arg,
                 has_header=False,
                 low_memory=True,
                 infer_schema_length=0,
-                columns=[0, 1, 2, 3, 4, 5],
+                columns=list(range(6)),
                 new_columns=["ts", "price", "b", "s", "m", "l"],
                 batch_size=10000,
                 rechunk=False,
@@ -284,20 +286,20 @@ class Client:
     def __init__(self) -> None:
         self._s = requests.Session()
         self._s.headers.update({"User-Agent": "prep/1.0"})
-        self._delay = 0.0
+        self._delay, self._n = 0, 0
 
     def _sleep(self, err: Any | None = None):
         time.sleep(self._delay)
         if err is None:
-            self._delay = 1
+            self._delay, self._n = 0 if self._n < 22 else 1, self._n + 1
         else:
-            self._delay = min(max(1, self._delay * 2), 5.0)
+            self._delay, self._n = min(max(1, self._delay * 2), 5), 0
 
     def _get_trades_page(
         self,
         pair: str,
         since: str,
-        timeout: float = 10.0,
+        timeout: float = 10,
         max_retries: int = 5,
     ) -> tuple[dict[str, Any], Exception | None]:
         last_err: Exception | None = None
