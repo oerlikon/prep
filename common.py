@@ -1,8 +1,9 @@
-import datetime
 import sys
+from collections.abc import Callable
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from functools import lru_cache
-from typing import Any, Protocol, Tuple
+from typing import Protocol
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 
@@ -11,29 +12,49 @@ class Symbol:
     name: str
     market: str | None = None
     time: str | None = None
-    start: datetime.datetime | None = None
-
-
-@dataclass
-class Action:
-    name: str
-    using: str | None = None
+    start: datetime | None = None
 
 
 class Cmd(Protocol):
-    def run(self, *args: str, **kwargs: Any) -> Tuple[int | None, str | Exception | None]:
-        ...
+    def run(self, *args, **kwargs) -> tuple[int | None, str | Exception | None]: ...
+
+
+@dataclass
+class Action(Cmd):
+    name: str
+    using: str | None = None
+    fn: Callable[..., tuple[int | None, str | Exception | None]] | None = None
+
+    def run(self, *args, **kwargs) -> tuple[int | None, str | Exception | None]:
+        if self.fn is not None:
+            return self.fn(self, *args, **kwargs)
+        return None, None
 
 
 @lru_cache
-def tzinfo(tzname: str) -> ZoneInfo | None:
+def tz(key: str) -> ZoneInfo | None:
     try:
-        return ZoneInfo(tzname)
+        return ZoneInfo(key)
     except ZoneInfoNotFoundError:
         return None
 
 
-def p(*what: Any, **mods: Any) -> None:
+def ts(dt: datetime) -> str:
+    if dt.tzinfo is None or dt.tzinfo is timezone.utc or dt.tzname() in ("GMT", "UTC"):
+        return dt.strftime("%Y-%m-%dT%H:%M:%SZ")
+    return dt.isoformat("T", "seconds")
+
+
+def zx(s: str) -> str:
+    if "." in s:
+        s = s.rstrip("0").rstrip(".")
+        if s:
+            return s
+        return "0"
+    return s
+
+
+def p(*what, **mods) -> None:
     print(*what, **mods, file=sys.stderr, flush=True)
 
 

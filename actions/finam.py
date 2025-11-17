@@ -1,15 +1,14 @@
 import os
 from pathlib import Path
-from typing import Any, Tuple
 
-import pandas as pd
+import polars as pl
 
-from common import Cmd, Symbol, p, tzinfo
+from common import Cmd, Symbol, p
 from fs import Block, Store
 
 
 class Import(Cmd):
-    def run(self, *args: str, **kwargs: Any) -> Tuple[int | None, str | Exception | None]:
+    def run(self, *args, **kwargs) -> tuple[int | None, str | Exception | None]:
         symbols: dict[str, Symbol] | None = kwargs.get("symbols")
         if not symbols:
             return None, None
@@ -17,17 +16,14 @@ class Import(Cmd):
         path = path if path is not None else ""
         store = Store(path)
         for arg in args:
-            sym, err = self.__parse_arg(arg)
+            sym, err = self._parse_arg(arg)
             if err is not None:
                 return 1, err
             if sym.lower() not in symbols:
                 p(f"Skipping {arg}")
                 continue
             p(f"Processing {arg}... ", end="")
-            err = self.__process_arg(arg, symbols[sym.lower()], store)
-            if isinstance(err, FileNotFoundError):
-                p("file not found")
-                return 1, None
+            err = self._process_arg(arg, symbols[sym.lower()], store)
             if err is not None:
                 p()
                 return 2, err
@@ -35,37 +31,106 @@ class Import(Cmd):
         return None, None
 
     @staticmethod
-    def __parse_arg(arg: str) -> Tuple[str, str | Exception | None]:
+    def _parse_arg(arg: str) -> tuple[str, Exception | None]:
         symbol, sep, _ = Path(arg).stem.partition("_M1_")
         if sep != "_M1_":
-            return "", f"invalid arg: {arg}"
+            return "", ValueError(f"unexpected: {arg}")
         return symbol, None
 
     @staticmethod
-    def __process_arg(arg: str, symbol: Symbol, store: Store) -> str | Exception | None:
+    def _process_arg(arg: str, symbol: Symbol, store: Store) -> Exception | None:
         try:
-            df = pd.read_csv(arg, sep="\t", dtype="str", skiprows=1, header=None, usecols=range(8))
-        except OSError as e:
-            return e
-        if symbol.time is None:
-            df[0] = pd.to_datetime(df[0] + " " + df[1], format="%Y.%m.%d %H:%M:%S", utc=True)
-        else:
-            df[0] = pd.to_datetime(df[0] + " " + df[1], format="%Y.%m.%d %H:%M:%S")
-            df[0] = df[0].dt.tz_localize(tzinfo(symbol.time))
-        df[7] = [b if b != "0" else a for a, b in df[[6, 7]].to_numpy()]
-        df[7] = df[7].replace("0", "")
-        if df[7].ne("").any():
-            df = df.drop(columns=[1, 6])
-        else:
-            df = df.drop(columns=[1, 6, 7])
-        for date, gf in df.groupby(df[0].dt.date):
-            err = store.put(Block(symbol.name, symbol.market, date, gf))
-            if err is not None:
+            reader = pl.read_csv_batched(
+                arg,
+                has_header=False,
+                skip_rows=1,
+                separator="\t",
+                low_memory=True,
+                infer_schema_length=0,
+                columns=list(range(8)),
+                new_columns=["date", "time", "open", "high", "low", "close", "ticks", "volume"],
+                batch_size=1000,
+                rechunk=False,
+            )
+        except OSError as err:
+            return err
+        except Exception as err:
+            return err
+
+        acc_df: pl.DataFrame | None = None
+        acc_y: int | None = None
+        acc_m: int | None = None
+
+        while True:
+            batches = reader.next_batches(1)
+            if batches is None:
+                break
+            try:
+                assert symbol.time is not None
+                batch = (
+                    batches[0]
+                    .with_columns(
+                        pl.concat_str(["date", "time"], separator=" ")
+                        .str.strptime(
+                            pl.Datetime(time_zone=symbol.time),
+                            "%Y.%m.%d %H:%M:%S",
+                        )
+                        .alias("dt")
+                    )
+                    .select("dt", "open", "high", "low", "close", "volume", "ticks")
+                )
+            except Exception as err:
                 return err
+
+            if (batch["volume"] == "0").any():
+                batch = batch.with_columns(pl.col("ticks").alias("volume"))
+
+            assert (batch["volume"] != "0").all()
+
+            try:
+                times = batch["dt"].to_list()
+            except Exception as err:
+                return err
+
+            if not times:
+                continue
+
+            start_idx, n_rows = 0, len(times)
+
+            while start_idx < n_rows:
+                y = times[start_idx].year
+                m = times[start_idx].month
+
+                idx = start_idx
+                while idx < n_rows and times[idx].year == y and times[idx].month == m:
+                    idx += 1
+
+                part = batch.slice(start_idx, idx - start_idx)
+
+                if acc_df is None:
+                    acc_df, acc_y, acc_m = part, y, m
+                elif acc_y == y and acc_m == m:
+                    try:
+                        acc_df = acc_df.vstack(part)
+                    except Exception as err:
+                        return err
+                else:
+                    err_ = store.put(Block(symbol.name, symbol.market, acc_df.item(1, "dt"), acc_df))
+                    if err_ is not None:
+                        return err_
+                    acc_df, acc_y, acc_m = part, y, m
+
+                start_idx = idx
+
+        if acc_df is not None:
+            err_ = store.put(Block(symbol.name, symbol.market, acc_df.item(1, "dt"), acc_df))
+            if err_ is not None:
+                return err_
+
         return None
 
 
-def getcmd(name: str) -> Tuple[Cmd | None, str | None]:
+def get_cmd(name: str) -> tuple[Cmd | None, str | None]:
     match name:
         case "import":
             return Import(), None
