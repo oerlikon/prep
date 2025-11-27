@@ -31,7 +31,7 @@ class Serve(Cmd):
             dl: Path | None = Path(args[0]) if len(args) > 0 else None
             asyncio.run(self._run_async(dl, symbols))
         except KeyboardInterrupt:
-            pass
+            p()
         except Exception as err:
             return 2, err
 
@@ -61,7 +61,11 @@ class Serve(Cmd):
             subscribing = set(self._pairs.keys())
 
             while True:
-                raw = await ws.recv()
+                try:
+                    raw = await ws.recv()
+                except websockets.exceptions.ConnectionClosed as e:
+                    p(f"Connection closed: {e.code} {e.reason}")
+                    break
                 try:
                     msg = json.loads(raw)
                 except json.JSONDecodeError:
@@ -83,7 +87,7 @@ class Serve(Cmd):
                                     raise RuntimeError(f"unexpected: {symbol!r}")
                                 subscribing.remove(symbol)
                                 if not subscribing:
-                                    p(f"Subscribed to trade feed for: {', '.join(self._pairs)}")
+                                    p(f"Subscribed to trade feed for: {', '.join(self._pairs.keys())}")
                                 continue
                     if channel == "status":
                         continue
@@ -104,23 +108,26 @@ class Serve(Cmd):
 
         for obj in data:
             if not isinstance(obj, dict):
-                return RuntimeError(f"unexpected: {obj!r}")
+                p(f"unexpected: {obj!r}")
+                continue
 
-            rec, err = self._trade_from_ws(obj)
+            ws_symbol, rec, err = self._trade_from_ws(obj)
             if err is not None:
-                return err
+                p(f"unexpected: {err!r}: {obj!r}")
+                continue
             assert rec is not None
 
-            symbol = self._pairs[str(obj.get("symbol"))]
+            symbol = self._pairs.get(ws_symbol)
             if symbol is None:
-                return RuntimeError(f"unexpected: {symbol!r}")
+                p(f"unexpected: {ws_symbol!r}: {obj!r}")
+                continue
 
             self._trades[symbol].append(rec)
 
         return None
 
     @staticmethod
-    def _trade_from_ws(obj: dict) -> tuple[TradeRecord | None, Exception | None]:
+    def _trade_from_ws(obj: dict) -> tuple[str, TradeRecord | None, Exception | None]:
         ts, symbol, price, qty = obj.get("timestamp"), obj.get("symbol"), obj.get("price"), obj.get("qty")
         side, ord_type, trade_id = obj.get("side"), obj.get("ord_type"), obj.get("trade_id")
 
@@ -133,7 +140,7 @@ class Serve(Cmd):
             or ord_type not in ("limit", "market")
             or not isinstance(trade_id, int)
         ):
-            return None, RuntimeError(f"unexpected: {obj!r}")
+            return "", None, RuntimeError("field type mismatch")
 
         if ts.endswith("Z"):
             ts = ts[:-1] + "+00:00"
@@ -144,4 +151,4 @@ class Serve(Cmd):
         m = qty if ord_type == "market" else 0
         l = qty if ord_type == "limit" else 0
 
-        return (dt.timestamp(), price, b, s, m, l, trade_id), None
+        return symbol, (dt.timestamp(), price, b, s, m, l, trade_id), None

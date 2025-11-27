@@ -1,3 +1,7 @@
+class config:
+    Interval = "23s"
+
+
 TradeRecord = tuple[
     float,  # timestamp
     str | int | float,  # price

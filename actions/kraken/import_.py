@@ -6,6 +6,8 @@ import polars as pl
 from common import Cmd, Symbol, p
 from fs import Block, Store
 
+from .common import config
+
 
 class Import(Cmd):
     def run(self, *args, **kwargs) -> tuple[int | None, str | Exception | None]:
@@ -124,7 +126,7 @@ class Import(Cmd):
         store: Store,
     ) -> Exception | None:
         df = (
-            df.group_by_dynamic(index_column="dt", every="23s", closed="left")
+            df.group_by_dynamic(index_column="dt", every=config.Interval, closed="left")
             .agg(
                 pl.col("price").first().alias("open"),
                 pl.col("price")
