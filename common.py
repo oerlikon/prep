@@ -45,7 +45,11 @@ def ts(dt: datetime) -> str:
     return dt.isoformat("T", "seconds")
 
 
-def zx(s: str) -> str:
+def zx(s: str | int | float) -> str:
+    if isinstance(s, int):
+        return str(s)
+    if isinstance(s, float):
+        s = f"{s:.18g}"
     if "." in s:
         s = s.rstrip("0").rstrip(".")
         if s:

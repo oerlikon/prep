@@ -1,10 +1,10 @@
 TradeRecord = tuple[
     float,  # timestamp
-    str,  # price
-    str,  # buy volume
-    str,  # sell volume
-    str,  # market volume
-    str,  # limit volume
+    str | int | float,  # price
+    str | int | float,  # buy volume
+    str | int | float,  # sell volume
+    str | int | float,  # market volume
+    str | int | float,  # limit volume
     int,  # trade id
 ]
 

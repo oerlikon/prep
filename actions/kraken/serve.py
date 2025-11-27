@@ -1,6 +1,7 @@
 import asyncio
 import json
 from collections import defaultdict
+from datetime import datetime
 from pathlib import Path
 
 import websockets
@@ -89,5 +90,58 @@ class Serve(Cmd):
                     if channel == "heartbeat":
                         continue
                     if channel == "trade":
-                        pass
+                        err = self._process_trade_msg(msg)
+                        if err is not None:
+                            p(f"Error: {err!r}")
+                        else:
+                            continue
                 print(msg)
+
+    def _process_trade_msg(self, msg: dict) -> Exception | None:
+        data = msg.get("data")
+        if not isinstance(data, list):
+            return None
+
+        for obj in data:
+            if not isinstance(obj, dict):
+                return RuntimeError(f"unexpected: {obj!r}")
+
+            rec, err = self._trade_from_ws(obj)
+            if err is not None:
+                return err
+            assert rec is not None
+
+            symbol = self._pairs[str(obj.get("symbol"))]
+            if symbol is None:
+                return RuntimeError(f"unexpected: {symbol!r}")
+
+            self._trades[symbol].append(rec)
+
+        return None
+
+    @staticmethod
+    def _trade_from_ws(obj: dict) -> tuple[TradeRecord | None, Exception | None]:
+        ts, symbol, price, qty = obj.get("timestamp"), obj.get("symbol"), obj.get("price"), obj.get("qty")
+        side, ord_type, trade_id = obj.get("side"), obj.get("ord_type"), obj.get("trade_id")
+
+        if (
+            not isinstance(ts, str)
+            or not isinstance(symbol, str)
+            or not isinstance(price, (int, float))
+            or not isinstance(qty, (int, float))
+            or side not in ("buy", "sell")
+            or ord_type not in ("limit", "market")
+            or not isinstance(trade_id, int)
+        ):
+            return None, RuntimeError(f"unexpected: {obj!r}")
+
+        if ts.endswith("Z"):
+            ts = ts[:-1] + "+00:00"
+        dt = datetime.fromisoformat(ts)
+
+        b = qty if side == "buy" else 0
+        s = qty if side == "sell" else 0
+        m = qty if ord_type == "market" else 0
+        l = qty if ord_type == "limit" else 0
+
+        return (dt.timestamp(), price, b, s, m, l, trade_id), None
