@@ -61,12 +61,12 @@ def _walk_symbols(
 ) -> Iterator[Symbol]:
     if node is None:
         return
-    if symbol is None:
-        symbol = Symbol("")
+    parent = symbol if symbol is not None else Symbol("")
     for item in node:
         name, symbols = item.get("name"), item.get("symbols")
         if name is not None and symbols is not None:
             raise Error(f"both name and more symbols in same node with name: {name}")
+        symbol = replace(parent)
         for k, v in item.items():
             match k:
                 case "name" | "symbols":
@@ -115,12 +115,12 @@ def _walk_actions(
 ) -> Iterator[Action]:
     if node is None:
         return
-    if action is None:
-        action = Action("")
+    parent = action if action is not None else Action("")
     for item in node:
         name, actions = item.get("name"), item.get("actions")
         if name is not None and actions is not None:
             raise Error(f"both name and more actions in same node with name: {name}")
+        action = replace(parent)
         for k, v in item.items():
             match k:
                 case "name" | "actions":

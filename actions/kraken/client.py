@@ -3,15 +3,7 @@ from typing import Any, Generator
 
 import requests
 
-TradeRecord = tuple[
-    float,  # timestamp
-    str,  # price
-    str,  # buy volume
-    str,  # sell volume
-    str,  # market volume
-    str,  # limit volume
-    int,  # trade id
-]
+from .common import TradeRecord
 
 
 class Client:

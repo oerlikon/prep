@@ -2,6 +2,7 @@ from common import Cmd
 
 from .fetch import Fetch
 from .import_ import Import
+from .serve import Serve
 
 
 def get_cmd(name: str) -> tuple[Cmd | None, str | None]:
@@ -10,5 +11,7 @@ def get_cmd(name: str) -> tuple[Cmd | None, str | None]:
             return Fetch(), None
         case "import":
             return Import(), None
+        case "serve":
+            return Serve(), None
         case _:
             return None, f"command {name} not found in module {__name__}"
