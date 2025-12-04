@@ -5,10 +5,11 @@ from pathlib import Path
 
 import websockets
 
+import dl
 from common import Cmd, Symbol
 from util import p, parse_ts
 
-from .common import TradeRecord, wsname
+from .common import wsname
 
 
 class Serve(Cmd):
@@ -17,7 +18,7 @@ class Serve(Cmd):
 
     def __init__(self) -> None:
         self._pairs: dict[str, str] = {}
-        self._trades: dict[str, list[TradeRecord]] = defaultdict(list)
+        self._trades: dict[str, list[dl.Record]] = defaultdict(list)
 
     def run(self, *args, **kwargs) -> tuple[int | None, str | Exception | None]:
         symbols: dict[str, Symbol] | None = kwargs.get("symbols")
@@ -28,8 +29,8 @@ class Serve(Cmd):
             assert symbol.market == "Kraken"
 
         try:
-            dl: Path | None = Path(args[0]) if len(args) > 0 else None
-            asyncio.run(self._run_async(dl, symbols))
+            path = Path(args[0]) if len(args) > 0 else None
+            asyncio.run(self._run_async(path, symbols))
         except KeyboardInterrupt:
             p()
         except Exception as err:
@@ -37,7 +38,7 @@ class Serve(Cmd):
 
         return None, None
 
-    async def _run_async(self, dl: Path | None, symbols: dict[str, Symbol]) -> None:
+    async def _run_async(self, path: Path | None, symbols: dict[str, Symbol]) -> None:
         for sym in symbols.values():
             name, err = wsname(sym.name)
             if err is not None:
@@ -124,10 +125,13 @@ class Serve(Cmd):
 
             self._trades[symbol].append(rec)
 
+            if len(self._trades[symbol]) > 10000:
+                self._trades[symbol] = self._trades[symbol][9000:]
+
         return None
 
     @staticmethod
-    def _trade_from_ws(obj: dict) -> tuple[str, TradeRecord | None, Exception | None]:
+    def _trade_from_ws(obj: dict) -> tuple[str, dl.Record | None, Exception | None]:
         ts, symbol, price, qty = obj.get("timestamp"), obj.get("symbol"), obj.get("price"), obj.get("qty")
         side, ord_type, trade_id = obj.get("side"), obj.get("ord_type"), obj.get("trade_id")
 
@@ -147,4 +151,4 @@ class Serve(Cmd):
         m = qty if ord_type == "market" else 0
         l = qty if ord_type == "limit" else 0
 
-        return symbol, (parse_ts(ts).timestamp(), price, b, s, m, l, trade_id), None
+        return symbol, dl.Record(parse_ts(ts), price, b, s, m, l, trade_id), None

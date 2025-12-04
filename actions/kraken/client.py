@@ -1,9 +1,10 @@
 import time
+from datetime import datetime, timezone
 from typing import Any, Generator
 
 import requests
 
-from .common import TradeRecord
+import dl
 
 
 class Client:
@@ -15,12 +16,43 @@ class Client:
         self._s.headers.update({"User-Agent": "prep/1.0"})
         self._delay, self._n = 0, 0
 
-    def _sleep(self, err: Any | None = None):
-        time.sleep(self._delay)
-        if err is None:
-            self._delay, self._n = 0 if self._n < 22 else 1, self._n + 1
-        else:
-            self._delay, self._n = min(max(1, self._delay * 2), 5), 0
+    def fetch_trades(
+        self,
+        pair: str,
+        start: float = 0,
+        last_id: int = 0,
+    ) -> Generator[tuple[list[dl.Record], Exception | None], None, None]:
+        since, end = str(start) if start else "", datetime.now(tz=timezone.utc)
+
+        while True:
+            page, err = self._get_trades_page(pair, since)
+            if err is not None:
+                yield [], err
+                return
+
+            _, trades, last, err = self._parse_page(page)
+            if err is not None:
+                yield [], err
+                return
+
+            if not trades:
+                return
+
+            i, n = 0, len(trades)
+            while i < n and trades[i].id <= last_id:
+                i += 1
+            if i > 0:
+                trades = trades[i:]
+
+            if not trades:
+                return
+
+            since, last_ts, last_id = last, trades[-1].ts, trades[-1].id
+
+            yield trades, None
+
+            if end < last_ts:
+                return
 
     def _get_trades_page(
         self,
@@ -53,45 +85,14 @@ class Client:
 
         return {}, last_err
 
-    def _fetch_trades(
-        self,
-        pair: str,
-        start: float,
-        last_id: int = 0,
-    ) -> Generator[tuple[list[TradeRecord], Exception | None], None, None]:
-        since, end = str(start) if start else "", time.time()
+    def _sleep(self, err: Any | None = None) -> None:
+        time.sleep(self._delay)
+        if err is None:
+            self._delay, self._n = 0 if self._n < 22 else 1, self._n + 1
+        else:
+            self._delay, self._n = min(max(1, self._delay * 2), 5), 0
 
-        while True:
-            page, err = self._get_trades_page(pair, since)
-            if err is not None:
-                yield [], err
-                return
-
-            _, trades, last, err = self._parse_page(page)
-            if err is not None:
-                yield [], err
-                return
-
-            if not trades:
-                return
-
-            i, n = 0, len(trades)
-            while i < n and trades[i][6] <= last_id:
-                i += 1
-            if i > 0:
-                trades = trades[i:]
-
-            if not trades:
-                return
-
-            since, last_ts, last_id = last, trades[-1][0], trades[-1][6]
-
-            yield trades, None
-
-            if end < last_ts:
-                return
-
-    def _parse_page(self, page: dict[str, Any]) -> tuple[str, list[TradeRecord], str, Exception | None]:
+    def _parse_page(self, page: dict[str, Any]) -> tuple[str, list[dl.Record], str, Exception | None]:
         result = page.get("result")
         if not isinstance(result, dict):
             return "", [], "", RuntimeError("no result?")
@@ -105,7 +106,7 @@ class Client:
         if not isinstance(rows, list):
             return "", [], "", RuntimeError("no trades?")
 
-        trades: list[TradeRecord] = []
+        trades: list[dl.Record] = []
         for row in rows:
             if (
                 not isinstance(row, list)
@@ -118,8 +119,8 @@ class Client:
                 return "", [], "", RuntimeError(f"unexpected {row}")
 
             trades.append(
-                (
-                    row[2],
+                dl.Record(
+                    datetime.fromtimestamp(row[2], tz=timezone.utc),
                     row[0],
                     row[1] if row[3] == "b" else "0",
                     row[1] if row[3] == "s" else "0",

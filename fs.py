@@ -44,7 +44,7 @@ class Store:
             csv = df.write_csv(None, include_header=False, line_terminator="\n").encode()
             path = self._path / f"{block.start.year}" / f"{block.start.month:02d}"
             path.mkdir(mode=0o755, parents=True, exist_ok=True)
-            path = path / self._make_filename(block.symbol, block.market, block.start)
+            path = path / self._filename(block.symbol, block.market, block.start)
             if not path.exists() or csv != path.read_bytes():
                 path.write_bytes(csv)
             return None
@@ -52,7 +52,7 @@ class Store:
             return err
 
     @staticmethod
-    def _make_filename(symbol: str, market: str | None, start: datetime.date) -> str:
+    def _filename(symbol: str, market: str | None, start: datetime.date) -> str:
         if market is not None:
             return f"{market.lower()}.{symbol.lower()}.{start.strftime('%Y%m')}.csv"
         return f"{symbol.lower()}.{start.strftime('%Y%m')}.csv"

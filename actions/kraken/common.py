@@ -3,17 +3,6 @@ class config:
     Warmup = "99h"
 
 
-TradeRecord = tuple[
-    float,  # timestamp
-    str | int | float,  # price
-    str | int | float,  # buy volume
-    str | int | float,  # sell volume
-    str | int | float,  # market volume
-    str | int | float,  # limit volume
-    int,  # trade id
-]
-
-
 def wsname(name: str) -> tuple[str, Exception | None]:
     name = name.upper()
     for pref, subs in {"XBT": "BTC", "XDG": "DOGE"}.items():
