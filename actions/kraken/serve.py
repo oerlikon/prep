@@ -1,12 +1,12 @@
 import asyncio
 import json
 from collections import defaultdict
-from datetime import datetime
 from pathlib import Path
 
 import websockets
 
-from common import Cmd, Symbol, p
+from common import Cmd, Symbol
+from util import p, parse_ts
 
 from .common import TradeRecord, wsname
 
@@ -142,13 +142,9 @@ class Serve(Cmd):
         ):
             return "", None, RuntimeError("field type mismatch")
 
-        if ts.endswith("Z"):
-            ts = ts[:-1] + "+00:00"
-        dt = datetime.fromisoformat(ts)
-
         b = qty if side == "buy" else 0
         s = qty if side == "sell" else 0
         m = qty if ord_type == "market" else 0
         l = qty if ord_type == "limit" else 0
 
-        return symbol, (dt.timestamp(), price, b, s, m, l, trade_id), None
+        return symbol, (parse_ts(ts).timestamp(), price, b, s, m, l, trade_id), None

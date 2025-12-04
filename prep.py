@@ -7,7 +7,8 @@ from collections.abc import Sequence
 from pathlib import Path
 
 import conf
-from common import Action, p
+from common import Action
+from util import p
 
 
 def main(argv: Sequence[str]) -> tuple[int | None, str | Exception | None]:

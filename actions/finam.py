@@ -3,8 +3,9 @@ from pathlib import Path
 
 import polars as pl
 
-from common import Cmd, Symbol, p
+from common import Cmd, Symbol
 from fs import Block, Store
+from util import p
 
 
 class Import(Cmd):

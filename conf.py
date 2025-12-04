@@ -5,7 +5,8 @@ from dataclasses import replace
 
 import yaml
 
-from common import Action, Symbol, tz
+from common import Action, Symbol
+from util import tz
 
 _symbols: dict[str, Symbol] = {}
 _actions: dict[str, Action] = {}

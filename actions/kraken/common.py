@@ -1,5 +1,6 @@
 class config:
     Interval = "23s"
+    Warmup = "99h"
 
 
 TradeRecord = tuple[

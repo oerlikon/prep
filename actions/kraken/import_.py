@@ -1,10 +1,10 @@
-import os
 from pathlib import Path
 
 import polars as pl
 
-from common import Cmd, Symbol, p
+from common import Cmd, Symbol
 from fs import Block, Store
+from util import p
 
 from .common import config
 
@@ -14,9 +14,7 @@ class Import(Cmd):
         symbols: dict[str, Symbol] | None = kwargs.get("symbols")
         if not symbols:
             return None, None
-        path: str | os.PathLike[str] | None = kwargs.get("path")
-        path = path if path is not None else ""
-        store = Store(path)
+        store = Store(kwargs.get("path", ""))
         for arg in args:
             sym, err = self._parse_arg(arg)
             if err is not None:

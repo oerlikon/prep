@@ -2,7 +2,8 @@ import os
 from datetime import datetime, timezone
 from pathlib import Path
 
-from common import Cmd, Symbol, p, ts, zx
+from common import Cmd, Symbol
+from util import p, parse_ts, ts, zx
 
 from .client import Client
 
@@ -91,10 +92,7 @@ class Fetch(Cmd):
                 if len(fields) < 7:
                     return 0, 0, ValueError(f"unexpected {fields}")
                 try:
-                    ds = fields[0]
-                    if ds.endswith("Z"):
-                        ds = ds[:-1] + "+00:00"
-                    dt, last_id = datetime.fromisoformat(ds), int(fields[6])
+                    dt, last_id = parse_ts(fields[0]), int(fields[6])
                 except ValueError as err:
                     return 0, 0, err
                 return dt.timestamp(), last_id, None

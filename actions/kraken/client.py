@@ -25,7 +25,7 @@ class Client:
     def _get_trades_page(
         self,
         pair: str,
-        since: str,
+        since: str = "",
         timeout: float = 10,
         max_retries: int = 5,
     ) -> tuple[dict[str, Any], Exception | None]:
@@ -34,7 +34,8 @@ class Client:
         for _ in range(max_retries):
             self._sleep()
             try:
-                resp = self._s.get(self.BASE_URL, params={"pair": pair, "since": since}, timeout=timeout)
+                params = {"pair": pair, "since": since} if since else {"pair": pair}
+                resp = self._s.get(self.BASE_URL, params=params, timeout=timeout)
             except requests.RequestException as err:
                 self._sleep(err)
                 last_err = err
@@ -58,7 +59,7 @@ class Client:
         start: float,
         last_id: int = 0,
     ) -> Generator[tuple[list[TradeRecord], Exception | None], None, None]:
-        since, end = str(start), time.time()
+        since, end = str(start) if start else "", time.time()
 
         while True:
             page, err = self._get_trades_page(pair, since)
@@ -66,7 +67,7 @@ class Client:
                 yield [], err
                 return
 
-            sym, trades, last, err = self._parse_page(page)
+            _, trades, last, err = self._parse_page(page)
             if err is not None:
                 yield [], err
                 return
