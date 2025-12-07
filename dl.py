@@ -1,10 +1,10 @@
 import os
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 
 from common import Symbol
-from util import parse_ts, ts, zx
+from util import parse_ts, tss, zx
 
 
 @dataclass
@@ -39,10 +39,7 @@ def lasts(path: str | os.PathLike[str], symbol: Symbol) -> tuple[float, int, Exc
                 if not lines:
                     return 0, 0, None
                 for b in reversed(lines):
-                    b = b.strip()
-                    if not b:
-                        continue
-                    fields = b.decode("utf-8", errors="replace").split(",")
+                    fields = b.strip().decode("utf-8").split(",")
                     if len(fields) < 7:
                         return 0, 0, ValueError(f"unexpected {fields}")
                     try:
@@ -71,7 +68,7 @@ def append(path: str | os.PathLike[str], symbol: Symbol, trades: list[Record]) -
             for rec in trades:
                 f.write(
                     ",".join(
-                        (ts(rec.ts), zx(rec.p), zx(rec.b), zx(rec.s), zx(rec.m), zx(rec.l), str(rec.id))
+                        (tss(rec.ts), zx(rec.p), zx(rec.b), zx(rec.s), zx(rec.m), zx(rec.l), str(rec.id))
                     )
                     + "\n"
                 )
@@ -79,3 +76,103 @@ def append(path: str | os.PathLike[str], symbol: Symbol, trades: list[Record]) -
         return err
 
     return None
+
+
+def tails(
+    path: str | os.PathLike[str],
+    symbol: Symbol,
+    start: datetime,
+) -> tuple[list[Record], Exception | None]:
+    """
+    Read trades for `symbol` from a csv file under `path`, starting at `start`.
+    """
+    dl = filename(path, symbol)
+
+    if not dl.exists():
+        return [], FileNotFoundError(f"file not found: {dl}")
+
+    try:
+        with dl.open("rb") as f:
+            f.seek(0, os.SEEK_END)
+            size = f.tell()
+            if size == 0:
+                return [], None
+
+            prestart = start - timedelta(days=1)
+
+            left, right, offset, block_size = 0, size, 0, 4096
+
+            while right - left > block_size:
+                offset = (right + left) // 2
+                f.seek(offset)
+                data = f.read(min(block_size, right - offset))
+                assert data
+
+                lines = data.splitlines()
+                assert lines
+
+                if offset > 0:
+                    assert len(lines) > 1
+                    lines = lines[1:]
+
+                ts: datetime | None = None
+                for raw in lines:
+                    fields = raw.strip().decode("utf-8").split(",")
+                    assert fields
+                    try:
+                        ts = parse_ts(fields[0])
+                    except ValueError as err:
+                        return [], err
+                    break
+                assert ts is not None
+
+                if prestart <= ts < start:
+                    break
+
+                if start < ts:
+                    left, right, offset = left, offset, left
+                else:
+                    left, right = offset, right
+
+            records: list[Record] = []
+
+            f.seek(offset)
+            if offset > 0:
+                f.readline()
+
+            for raw in f:
+                raw = raw.strip()
+                if not raw:
+                    continue
+
+                fields = raw.decode("utf-8").split(",")
+                if len(fields) < 7:
+                    return records[:], ValueError(f"unexpected {fields}")
+
+                try:
+                    ts = parse_ts(fields[0])
+                except ValueError as err:
+                    return records[:], err
+
+                if ts < start:
+                    continue
+
+                try:
+                    rec = Record(
+                        ts,
+                        float(fields[1]),
+                        float(fields[2]),
+                        float(fields[3]),
+                        float(fields[4]),
+                        float(fields[5]),
+                        int(fields[6]),
+                    )
+                except (ValueError, TypeError) as err:
+                    return records[:], err
+
+                records.append(rec)
+
+            return records[:], None
+
+    except OSError as err:
+        return [], err

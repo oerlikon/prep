@@ -59,7 +59,7 @@ class Serve(Cmd):
             await ws.send(json.dumps(sub_msg))
             p("done.")
 
-            subscribing = set(self._pairs.keys())
+            pending = set(self._pairs.keys())
 
             while True:
                 try:
@@ -84,10 +84,10 @@ class Serve(Cmd):
                                     err = msg.get("error", "unknown error")
                                     raise RuntimeError(f"subscribe error: {err!r}")
                                 symbol = result.get("symbol")
-                                if symbol not in subscribing:
+                                if symbol not in pending:
                                     raise RuntimeError(f"unexpected: {symbol!r}")
-                                subscribing.remove(symbol)
-                                if not subscribing:
+                                pending.remove(symbol)
+                                if not pending:
                                     p(f"Subscribed to trade feed for: {', '.join(self._pairs.keys())}")
                                 continue
                     if channel == "status":

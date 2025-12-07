@@ -5,7 +5,7 @@ from pathlib import Path
 
 import polars as pl
 
-from util import ts
+from util import tss
 
 
 @dataclass
@@ -34,7 +34,7 @@ class Store:
 
         df = df.with_columns(
             pl.lit(sym).alias("Symbol"),
-            pl.col(df.columns[0]).map_elements(ts, return_dtype=pl.Utf8).alias(df.columns[0]),
+            pl.col(df.columns[0]).map_elements(tss, return_dtype=pl.Utf8).alias(df.columns[0]),
         )
         df = df.select(["Symbol", *[c for c in df.columns if c != "Symbol"]])
         return self._store(block, df)

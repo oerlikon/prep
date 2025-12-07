@@ -23,7 +23,7 @@ def tz(key: str) -> ZoneInfo | None:
         return None
 
 
-def ts(dt: datetime) -> str:
+def tss(dt: datetime) -> str:
     if dt.tzinfo is None or dt.tzinfo is timezone.utc or dt.tzname() in ("GMT", "UTC"):
         return dt.strftime("%Y-%m-%dT%H:%M:%SZ")
     return dt.isoformat("T", "seconds")
