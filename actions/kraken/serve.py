@@ -2,15 +2,16 @@ import asyncio
 import json
 from collections import defaultdict
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from pathlib import Path
 
 import websockets
 
 import dl
 from common import Cmd, Result, Symbol
-from util import p, parse_ts, zx
+from util import p, parse_timedelta, parse_ts, tss, zx
 
-from .common import wsname
+from .common import config, wsname
 
 
 class Serve(Cmd):
@@ -31,13 +32,14 @@ class Serve(Cmd):
         symbols: dict[str, Symbol] | None = kwargs.get("symbols")
         if not symbols:
             return None, None
+        if not args:
+            return 1, "dl path?"
 
         for symbol in symbols.values():
             assert symbol.market == "Kraken"
 
         try:
-            path = Path(args[0]) if len(args) > 0 else None
-            asyncio.run(self._run_async(path, symbols))
+            asyncio.run(self._run_async(Path(args[0]), symbols))
         except KeyboardInterrupt:
             pass
         except Exception as err:
@@ -45,14 +47,14 @@ class Serve(Cmd):
 
         return None, None
 
-    async def _run_async(self, path: Path | None, symbols: dict[str, Symbol]) -> None:
+    async def _run_async(self, path: Path, symbols: dict[str, Symbol]) -> None:
         for symbol in symbols.values():
             name, err = wsname(symbol.name)
             if err is not None:
                 raise err
             self._pairs[name] = symbol.name
 
-        p("Symbols:", ", ".join(sorted(self._pairs.keys())))
+        p("Symbols:", ", ".join(sorted(self._pairs.values())))
 
         try:
             self._start_ws()
@@ -68,6 +70,7 @@ class Serve(Cmd):
                 if isinstance(item, self.Subscribed):
                     self._pending = None
                     p("Subscriptions confirmed, fetching warmup...")
+                    self._start_load_dl(path, symbols)
                     continue
 
                 if isinstance(item, self.Trades):
@@ -76,6 +79,18 @@ class Serve(Cmd):
                         if len(self._trades[sym]) > 300000:
                             self._trades[sym] = self._trades[sym][-250000:]
                     p(" ".join(f"{symbol}:{len(trades)}" for symbol, trades in self._trades.items()))
+                    continue
+
+                if isinstance(item, self.LoadedTrades):
+                    assert self._warmup is not None
+                    if item.trades:
+                        for sym, trades in item.trades.items():
+                            p(
+                                f"Loaded {sym}:",
+                                f"{tss(trades[0].ts)} .. {tss(trades[-1].ts)}",
+                                f"({len(trades)} records)",
+                            )
+                            self._warmup[sym].extend(trades)
                     continue
 
         finally:
@@ -232,3 +247,30 @@ class Serve(Cmd):
         l = qty if ord_type == "limit" else "0"
 
         return symbol, dl.Record(parse_ts(ts), price, b, s, m, l, trade_id), None
+
+    @dataclass
+    class LoadedTrades(Result):
+        trades: dict[str, list[dl.Record]]
+
+    def _start_load_dl(self, path: Path, symbols: dict[str, Symbol]) -> None:
+
+        async def fn() -> None:
+            try:
+                warmup = datetime.now(tz=timezone.utc) - parse_timedelta(config.Warmup)
+
+                for symbol in symbols.values():
+                    tails, err = dl.tails(path, symbol, warmup)
+                    if err is not None:
+                        await self._queue.put(Result(err=err))
+                        break
+                    if tails:
+                        await self._queue.put(self.LoadedTrades({symbol.name: tails}))
+
+                await self._queue.put(self.LoadedTrades({}))
+
+            except asyncio.CancelledError:
+                raise
+            except Exception as err:
+                await self._queue.put(Result(err=err))
+
+        self._add_task(asyncio.create_task(fn()))
