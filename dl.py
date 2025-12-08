@@ -4,17 +4,17 @@ from datetime import datetime, timedelta
 from pathlib import Path
 
 from common import Symbol
-from util import parse_ts, tss, zx
+from util import parse_ts, tss
 
 
 @dataclass
 class Record:
     ts: datetime  # timestamp
-    p: str | int | float  # price
-    b: str | int | float  # buy volume
-    s: str | int | float  # sell volume
-    m: str | int | float  # market volume
-    l: str | int | float  # limit volume
+    p: str  # price
+    b: str  # buy volume
+    s: str  # sell volume
+    m: str  # market volume
+    l: str  # limit volume
     id: int  # trade id
 
 
@@ -66,12 +66,7 @@ def append(path: str | os.PathLike[str], symbol: Symbol, trades: list[Record]) -
     try:
         with dl.open("a", newline="\n", encoding="utf-8") as f:
             for rec in trades:
-                f.write(
-                    ",".join(
-                        (tss(rec.ts), zx(rec.p), zx(rec.b), zx(rec.s), zx(rec.m), zx(rec.l), str(rec.id))
-                    )
-                    + "\n"
-                )
+                f.write(",".join((tss(rec.ts), rec.p, rec.b, rec.s, rec.m, rec.l, str(rec.id))) + "\n")
     except OSError as err:
         return err
 
@@ -147,12 +142,12 @@ def tails(
 
                 fields = raw.decode("utf-8").split(",")
                 if len(fields) < 7:
-                    return records[:], ValueError(f"unexpected {fields}")
+                    return [], ValueError(f"unexpected {fields}")
 
                 try:
                     ts = parse_ts(fields[0])
                 except ValueError as err:
-                    return records[:], err
+                    return [], err
 
                 if ts < start:
                     continue
@@ -160,15 +155,15 @@ def tails(
                 try:
                     rec = Record(
                         ts,
-                        float(fields[1]),
-                        float(fields[2]),
-                        float(fields[3]),
-                        float(fields[4]),
-                        float(fields[5]),
+                        fields[1],
+                        fields[2],
+                        fields[3],
+                        fields[4],
+                        fields[5],
                         int(fields[6]),
                     )
                 except (ValueError, TypeError) as err:
-                    return records[:], err
+                    return [], err
 
                 records.append(rec)
 

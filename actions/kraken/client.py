@@ -5,6 +5,7 @@ from typing import Any, Generator
 import requests
 
 import dl
+from util import zx
 
 
 class Client:
@@ -117,6 +118,8 @@ class Client:
                 or not isinstance(row[6], int)  # trade id
             ):
                 return "", [], "", RuntimeError(f"unexpected {row}")
+
+            row[0], row[1] = zx(row[0]), zx(row[1])
 
             trades.append(
                 dl.Record(

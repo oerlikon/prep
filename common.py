@@ -1,5 +1,5 @@
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Protocol
 
@@ -26,3 +26,8 @@ class Action(Cmd):
         if self.fn is not None:
             return self.fn(self, *args, **kwargs)
         return None, None
+
+
+@dataclass
+class Result:
+    err: Exception | None = field(default=None, kw_only=True)

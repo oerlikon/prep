@@ -1,5 +1,4 @@
 class config:
-    Interval = "23s"
     Warmup = "99h"
 
 
