@@ -9,8 +9,9 @@ import websockets
 
 import dl
 from common import Cmd, Result, Symbol
-from util import p, parse_timedelta, parse_ts, tss, zx
+from util import p, parse_timedelta, parse_ts, tsp, zx
 
+from .client import Client
 from .common import config, wsname
 
 
@@ -23,7 +24,7 @@ class Serve(Cmd):
         self._pending: set[str] | None = None
 
         self._trades: dict[str, list[dl.Record]] = defaultdict(list)
-        self._warmup: dict[str, list[dl.Record]] | None = defaultdict(list)
+        self._warmup: dict[str, list[dl.Record]] | None = None
 
         self._tasks: set[asyncio.Task] = set()
         self._queue: asyncio.Queue[Result | None] = asyncio.Queue()
@@ -69,7 +70,8 @@ class Serve(Cmd):
 
                 if isinstance(item, self.Subscribed):
                     self._pending = None
-                    p("Subscriptions confirmed, fetching warmup...")
+                    p("Subscriptions confirmed, warming up...")
+                    self._warmup = defaultdict(list)
                     self._start_load_dl(path, symbols)
                     continue
 
@@ -78,7 +80,7 @@ class Serve(Cmd):
                         self._trades[sym].extend(trades)
                         if len(self._trades[sym]) > 300000:
                             self._trades[sym] = self._trades[sym][-250000:]
-                    p(" ".join(f"{symbol}:{len(trades)}" for symbol, trades in self._trades.items()))
+                    # p(" ".join(f"{symbol}:{len(trades)}" for symbol, trades in self._trades.items()))
                     continue
 
                 if isinstance(item, self.LoadedTrades):
@@ -87,10 +89,29 @@ class Serve(Cmd):
                         for sym, trades in item.trades.items():
                             p(
                                 f"Loaded {sym}:",
-                                f"{tss(trades[0].ts)} .. {tss(trades[-1].ts)}",
+                                f"{tsp(trades[0].ts)} -> {tsp(trades[-1].ts)}",
                                 f"({len(trades)} records)",
                             )
                             self._warmup[sym].extend(trades)
+                    else:
+                        self._start_fetch(symbols)
+                    continue
+
+                if isinstance(item, self.FetchedTrades):
+                    assert self._warmup is not None
+                    if item.trades:
+                        for sym, trades in item.trades.items():
+                            p(
+                                f"Fetched {sym}:",
+                                f"{tsp(trades[0].ts)} -> {tsp(trades[-1].ts)}",
+                                f"({len(trades)} records)",
+                            )
+                            self._warmup[sym] = dl.extend(self._warmup[sym], trades)
+                    else:
+                        for sym, trades in self._trades.items():
+                            self._warmup[sym] = dl.extend(self._warmup[sym], trades)
+                        self._trades, self._warmup = self._warmup, None
+                        p("Warmup complete.")
                     continue
 
         finally:
@@ -259,7 +280,7 @@ class Serve(Cmd):
                 warmup = datetime.now(tz=timezone.utc) - parse_timedelta(config.Warmup)
 
                 for symbol in symbols.values():
-                    tails, err = dl.tails(path, symbol, warmup)
+                    tails, err = await asyncio.to_thread(dl.tails, path, symbol, warmup)
                     if err is not None:
                         await self._queue.put(Result(err=err))
                         break
@@ -267,6 +288,44 @@ class Serve(Cmd):
                         await self._queue.put(self.LoadedTrades({symbol.name: tails}))
 
                 await self._queue.put(self.LoadedTrades({}))
+
+            except asyncio.CancelledError:
+                raise
+            except Exception as err:
+                await self._queue.put(Result(err=err))
+
+        self._add_task(asyncio.create_task(fn()))
+
+    @dataclass
+    class FetchedTrades(Result):
+        trades: dict[str, list[dl.Record]]
+
+    def _start_fetch(self, symbols: dict[str, Symbol]) -> None:
+
+        async def fn() -> None:
+            try:
+                assert self._warmup is not None
+
+                client = Client()
+
+                for symbol in symbols.values():
+                    tails = self._warmup[symbol.name]
+                    assert tails
+                    last_ts, last_id = tails[-1].ts.timestamp(), tails[-1].id
+
+                    pages = await asyncio.to_thread(
+                        lambda: list(client.fetch_trades(symbol.name, last_ts, last_id))
+                    )
+                    trades: list[dl.Record] = []
+                    for page, err in pages:
+                        if err is not None:
+                            await self._queue.put(Result(err=err))
+                            return
+                        trades.extend(page)
+                    if trades:
+                        await self._queue.put(self.FetchedTrades({symbol.name: trades}))
+
+                await self._queue.put(self.FetchedTrades({}))
 
             except asyncio.CancelledError:
                 raise

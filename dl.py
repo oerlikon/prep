@@ -171,3 +171,14 @@ def tails(
 
     except OSError as err:
         return [], err
+
+
+def extend(a: list[Record], b: list[Record]) -> list[Record]:
+    if not a:
+        return b
+    last_id = a[-1].id
+    for i, rec in enumerate(b):
+        if rec.id > last_id:
+            a.extend(b[i:])
+            return a
+    return a
