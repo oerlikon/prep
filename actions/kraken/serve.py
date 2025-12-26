@@ -13,11 +13,14 @@ from util import p, parse_timedelta, parse_ts, tsp, zx
 
 from .client import Client
 from .common import config, wsname
+from .server import Block, Hub, run_server
 
 
 class Serve(Cmd):
 
     WS_URL = "wss://ws.kraken.com/v2"
+
+    WS_HOST, WS_PORT = "127.0.0.1", 8765
 
     def __init__(self) -> None:
         self._pairs: dict[str, str] = {}
@@ -28,6 +31,8 @@ class Serve(Cmd):
 
         self._tasks: set[asyncio.Task] = set()
         self._queue: asyncio.Queue[Result | None] = asyncio.Queue()
+
+        self._hub: Hub | None = None
 
     def run(self, *args, **kwargs) -> tuple[int | None, str | Exception | None]:
         symbols: dict[str, Symbol] | None = kwargs.get("symbols")
@@ -80,7 +85,9 @@ class Serve(Cmd):
                         self._trades[sym].extend(trades)
                         if len(self._trades[sym]) > 300000:
                             self._trades[sym] = self._trades[sym][-250000:]
-                    # p(" ".join(f"{symbol}:{len(trades)}" for symbol, trades in self._trades.items()))
+                    if self._hub is not None:
+                        blocks = [Block(sym, trades) for sym, trades in item.trades.items()]
+                        self._add_task(asyncio.create_task(self._hub.push(blocks)))
                     continue
 
                 if isinstance(item, self.LoadedTrades):
@@ -111,7 +118,7 @@ class Serve(Cmd):
                         for sym, trades in self._trades.items():
                             self._warmup[sym] = dl.extend(self._warmup[sym], trades)
                         self._trades, self._warmup = self._warmup, None
-                        p("Warmup complete.")
+                        self._start_ws_server()
                     continue
 
         finally:
@@ -172,6 +179,23 @@ class Serve(Cmd):
                 await self._queue.put(Result(err=err))
 
         self._add_task(asyncio.create_task(fn()))
+
+    def _start_ws_server(self):
+        self._hub = Hub()
+        self._add_task(
+            asyncio.create_task(
+                run_server(
+                    self._hub,
+                    self._snapshot,
+                    host=self.WS_HOST,
+                    port=self.WS_PORT,
+                )
+            )
+        )
+        p(f"Listening on ws://{self.WS_HOST}:{self.WS_PORT}...")
+
+    async def _snapshot(self) -> list[Block]:
+        return [Block(sym, trades[:]) for sym, trades in self._trades.items()]
 
     class Subscribed(Result):
         pass
