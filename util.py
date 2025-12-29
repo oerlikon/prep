@@ -45,7 +45,7 @@ def zx(s: str | int | float) -> str:
     if isinstance(s, int):
         return str(s)
     if isinstance(s, float):
-        s = f"{s:.18g}"
+        s = f"{s:.8g}"
     if "." in s:
         s = s.rstrip("0").rstrip(".")
         if s:

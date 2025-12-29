@@ -58,9 +58,9 @@ class Serve(Cmd):
             name, err = wsname(symbol.name)
             if err is not None:
                 raise err
-            self._pairs[name] = symbol.name
+            self._pairs[name] = f"{symbol.market}:{symbol.name}"
 
-        p("Symbols:", ", ".join(sorted(self._pairs.values())))
+        p("Symbols:", ", ".join(sorted(self._pairs.keys())))
 
         try:
             self._start_ws()
@@ -309,7 +309,7 @@ class Serve(Cmd):
                         await self._queue.put(Result(err=err))
                         break
                     if tails:
-                        await self._queue.put(self.LoadedTrades({symbol.name: tails}))
+                        await self._queue.put(self.LoadedTrades({f"{symbol.market}:{symbol.name}": tails}))
 
                 await self._queue.put(self.LoadedTrades({}))
 
@@ -333,7 +333,7 @@ class Serve(Cmd):
                 client = Client()
 
                 for symbol in symbols.values():
-                    tails = self._warmup[symbol.name]
+                    tails = self._warmup[f"{symbol.market}:{symbol.name}"]
                     assert tails
                     last_ts, last_id = tails[-1].ts.timestamp(), tails[-1].id
 
@@ -347,7 +347,9 @@ class Serve(Cmd):
                             return
                         trades.extend(page)
                     if trades:
-                        await self._queue.put(self.FetchedTrades({symbol.name: trades}))
+                        await self._queue.put(
+                            self.FetchedTrades({f"{symbol.market}:{symbol.name}": trades})
+                        )
 
                 await self._queue.put(self.FetchedTrades({}))
 

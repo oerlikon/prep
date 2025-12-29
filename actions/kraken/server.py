@@ -31,7 +31,7 @@ class Block:
 class Feed:
     websocket: ServerConnection
     stash: list[str] | None = field(default_factory=list)
-    queue: asyncio.Queue[str] = field(default_factory=lambda: asyncio.Queue(maxsize=33))
+    queue: asyncio.Queue[str] = field(default_factory=lambda: asyncio.Queue(maxsize=5555))
 
 
 class Hub:
