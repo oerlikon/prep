@@ -5,7 +5,9 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 
-import websockets
+from websockets import Data, connect
+from websockets.asyncio.client import ClientConnection
+from websockets.exceptions import ConnectionClosed
 
 import dl
 from common import Cmd, Result, Symbol
@@ -142,10 +144,28 @@ class Serve(Cmd):
 
     def _start_ws(self) -> None:
 
+        import logging
+
+        logging.basicConfig(
+            format="%(asctime)s %(message)s",
+            level=logging.DEBUG,
+        )
+
+        async def pings(ws: ClientConnection) -> None:
+            try:
+                while True:
+                    await asyncio.sleep(55)
+                    await ws.send('{"method":"ping"}')
+
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                pass
+
         async def fn() -> None:
             try:
                 p(f"Connecting to {self.WS_URL}...")
-                async with websockets.connect(self.WS_URL, ping_interval=20) as ws:
+                async with connect(self.WS_URL, ping_interval=20) as ws:
                     sub_msg = {
                         "method": "subscribe",
                         "params": {
@@ -158,12 +178,14 @@ class Serve(Cmd):
                     await ws.send(json.dumps(sub_msg))
                     p("Connected, confirming feed subscriptions...")
 
+                    self._add_task(asyncio.create_task(pings(ws)))
+
                     self._pending = set(self._pairs.keys())
 
                     while True:
                         try:
                             raw = await ws.recv()
-                        except websockets.exceptions.ConnectionClosed as e:
+                        except ConnectionClosed as e:
                             p(f"Connection closed: {e.code} {e.reason}")
                             await self._queue.put(None)
                             break
@@ -200,7 +222,7 @@ class Serve(Cmd):
     class Subscribed(Result):
         pass
 
-    async def _process_ws_msg(self, raw: websockets.Data) -> Exception | None:
+    async def _process_ws_msg(self, raw: Data) -> Exception | None:
         try:
             msg = json.loads(raw)
         except json.JSONDecodeError:
@@ -225,6 +247,8 @@ class Serve(Cmd):
                         if not self._pending:
                             await self._queue.put(self.Subscribed())
                         return None
+                if method == "pong":
+                    return None
             if channel == "status":
                 return None
             if channel == "heartbeat":
