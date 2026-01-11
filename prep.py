@@ -77,3 +77,4 @@ if __name__ == "__main__":
             sys.exit(ret)
     except KeyboardInterrupt:
         p()
+        sys.exit(130)

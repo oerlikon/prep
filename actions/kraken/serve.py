@@ -49,7 +49,9 @@ class Serve(Cmd):
         try:
             asyncio.run(self._run_async(Path(args[0]), symbols))
         except KeyboardInterrupt:
-            pass
+            return 130, None
+        except ConnectionClosed as err:
+            return 69, err
         except Exception as err:
             return 2, err
 
