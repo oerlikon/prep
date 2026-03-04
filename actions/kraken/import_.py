@@ -46,8 +46,7 @@ class Import(Cmd):
                 has_header=False,
                 low_memory=True,
                 infer_schema_length=0,
-                columns=list(range(6)),
-                new_columns=["ts", "price", "b", "s", "m", "l"],
+                new_columns=["ts", "price", "b", "s", "m", "l", "last_id"],
                 batch_size=10000,
                 rechunk=False,
             )
@@ -67,6 +66,7 @@ class Import(Cmd):
             try:
                 batch = (
                     batches[0]
+                    .drop("last_id")
                     .with_columns(pl.col("ts").str.to_datetime(time_zone="UTC").alias("dt"))
                     .with_columns(pl.col("price").cast(pl.Float32).alias("price_value"))
                 )

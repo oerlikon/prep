@@ -315,7 +315,7 @@ class Serve(Cmd):
         b = qty if side == "buy" else "0"
         s = qty if side == "sell" else "0"
         m = qty if ord_type == "market" else "0"
-        l = qty if ord_type == "limit" else "0"
+        l = qty if ord_type == "limit" else "0"  # noqa: E741
 
         return symbol, dl.Record(parse_ts(ts), price, b, s, m, l, trade_id), None
 
