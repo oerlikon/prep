@@ -31,7 +31,7 @@ def tss(dt: datetime) -> str:
 
 def tsp(dt: datetime) -> str:
     if dt.tzinfo is None or dt.tzinfo is timezone.utc or dt.tzname() in ("GMT", "UTC"):
-        return dt.strftime(f"%Y-%m-%d %H:%M:%S")
+        return dt.strftime("%Y-%m-%d %H:%M:%S")
     return dt.isoformat(" ", "seconds")
 
 

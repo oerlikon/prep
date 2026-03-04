@@ -1,4 +1,9 @@
-__pycache__
+.mypy_cache/
+.venv/
+_
+__pycache__/
+
+*.swp
 
 # macOS
 .DS_Store

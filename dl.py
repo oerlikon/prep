@@ -14,7 +14,7 @@ class Record:
     b: str  # buy volume
     s: str  # sell volume
     m: str  # market volume
-    l: str  # limit volume
+    l: str  # limit volume  # noqa: E741
     id: int  # trade id
 
 
