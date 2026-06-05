@@ -9,7 +9,6 @@ from util import zx
 
 
 class Client:
-
     BASE_URL = "https://api.kraken.com/0/public/Trades"
 
     def __init__(self) -> None:

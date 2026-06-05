@@ -19,7 +19,6 @@ from .server import Block, Hub, run_server
 
 
 class Serve(Cmd):
-
     WS_URL = "wss://ws.kraken.com/v2"
 
     WS_HOST, WS_PORT = "127.0.0.1", 8765
