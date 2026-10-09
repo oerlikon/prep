@@ -14,7 +14,7 @@ class Record:
     b: str  # buy volume
     s: str  # sell volume
     m: str  # market volume
-    l: str  # limit volume  # noqa: E741
+    l: str  # limit volume
     id: int  # trade id
 
 
@@ -125,9 +125,9 @@ def tails(
                     break
 
                 if start < ts:
-                    left, right, offset = left, offset, left
+                    right, offset = offset, left
                 else:
-                    left, right = offset, right
+                    left = offset
 
             records: list[Record] = []
 

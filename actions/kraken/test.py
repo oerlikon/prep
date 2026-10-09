@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 import dl
@@ -15,7 +15,7 @@ class Test(Cmd):
         path = Path(args[0]) if len(args) > 0 else None
         assert path is not None
 
-        recs, err = dl.tails(path, symbols["xbtusd"], datetime(2025, 12, 1, tzinfo=timezone.utc))
+        recs, err = dl.tails(path, symbols["xbtusd"], datetime(2025, 12, 1, tzinfo=UTC))
         if err is not None:
             return 2, err
 

@@ -2,7 +2,7 @@ import asyncio
 import json
 from collections import defaultdict
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 from websockets import Data, connect
@@ -51,7 +51,7 @@ class Serve(Cmd):
             return 130, None
         except ConnectionClosed as err:
             return 69, err
-        except Exception as err:
+        except Exception as err:  # noqa: BLE001
             return 2, err
 
         return None, None
@@ -160,7 +160,7 @@ class Serve(Cmd):
 
             except asyncio.CancelledError:
                 raise
-            except Exception:
+            except ConnectionClosed:
                 pass
 
         async def fn() -> None:
@@ -198,7 +198,7 @@ class Serve(Cmd):
 
             except asyncio.CancelledError:
                 raise
-            except Exception as err:
+            except Exception as err:  # noqa: BLE001
                 await self._queue.put(Result(err=err))
 
         self._add_task(asyncio.create_task(fn()))
@@ -314,7 +314,7 @@ class Serve(Cmd):
         b = qty if side == "buy" else "0"
         s = qty if side == "sell" else "0"
         m = qty if ord_type == "market" else "0"
-        l = qty if ord_type == "limit" else "0"  # noqa: E741
+        l = qty if ord_type == "limit" else "0"
 
         return symbol, dl.Record(parse_ts(ts), price, b, s, m, l, trade_id), None
 
@@ -326,7 +326,7 @@ class Serve(Cmd):
 
         async def fn() -> None:
             try:
-                warmup = datetime.now(tz=timezone.utc) - parse_timedelta(config.Warmup)
+                warmup = datetime.now(tz=UTC) - parse_timedelta(config.Warmup)
 
                 for symbol in symbols.values():
                     tails, err = await asyncio.to_thread(dl.tails, path, symbol, warmup)
@@ -340,7 +340,7 @@ class Serve(Cmd):
 
             except asyncio.CancelledError:
                 raise
-            except Exception as err:
+            except Exception as err:  # noqa: BLE001
                 await self._queue.put(Result(err=err))
 
         self._add_task(asyncio.create_task(fn()))
@@ -363,8 +363,9 @@ class Serve(Cmd):
                     last_ts, last_id = tails[-1].ts.timestamp(), tails[-1].id
 
                     pages = await asyncio.to_thread(
-                        lambda: list(client.fetch_trades(symbol.name, last_ts, last_id))
+                        list, client.fetch_trades(symbol.name, last_ts, last_id)
                     )
+
                     trades: list[dl.Record] = []
                     for page, err in pages:
                         if err is not None:
@@ -380,7 +381,7 @@ class Serve(Cmd):
 
             except asyncio.CancelledError:
                 raise
-            except Exception as err:
+            except Exception as err:  # noqa: BLE001
                 await self._queue.put(Result(err=err))
 
         self._add_task(asyncio.create_task(fn()))

@@ -1,6 +1,7 @@
 import time
-from datetime import datetime, timezone
-from typing import Any, Generator
+from collections.abc import Generator
+from datetime import UTC, datetime
+from typing import Any
 
 import requests
 
@@ -21,8 +22,8 @@ class Client:
         pair: str,
         start: float = 0,
         last_id: int = 0,
-    ) -> Generator[tuple[list[dl.Record], Exception | None], None, None]:
-        since, end = str(start) if start else "", datetime.now(tz=timezone.utc)
+    ) -> Generator[tuple[list[dl.Record], Exception | None]]:
+        since, end = str(start) if start else "", datetime.now(tz=UTC)
 
         while True:
             page, err = self._get_trades_page(pair, since)
@@ -47,7 +48,7 @@ class Client:
             if not trades:
                 return
 
-            since, last_ts, last_id = last, trades[-1].ts, trades[-1].id
+            since, last_ts, last_id = str(int(last) - 1), trades[-1].ts, trades[-1].id
 
             yield trades, None
 
@@ -97,7 +98,7 @@ class Client:
         if not isinstance(result, dict):
             return "", [], "", RuntimeError("no result?")
 
-        keys, last = [k for k in result.keys() if k != "last"], result.get("last")
+        keys, last = [k for k in result if k != "last"], result.get("last")
         if not keys or not isinstance(last, str):
             return "", [], "", RuntimeError("missing something?")
 
@@ -122,7 +123,7 @@ class Client:
 
             trades.append(
                 dl.Record(
-                    datetime.fromtimestamp(row[2], tz=timezone.utc),
+                    datetime.fromtimestamp(row[2], tz=UTC),
                     row[0],
                     row[1] if row[3] == "b" else "0",
                     row[1] if row[3] == "s" else "0",

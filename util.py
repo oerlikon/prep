@@ -1,6 +1,6 @@
 import re
 import sys
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from functools import lru_cache
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
@@ -24,13 +24,13 @@ def tz(key: str) -> ZoneInfo | None:
 
 
 def tss(dt: datetime) -> str:
-    if dt.tzinfo is None or dt.tzinfo is timezone.utc or dt.tzname() in ("GMT", "UTC"):
+    if dt.tzinfo is None or dt.tzinfo is UTC or dt.tzname() in ("GMT", "UTC"):
         return dt.strftime("%Y-%m-%dT%H:%M:%S.%fZ")
     return dt.isoformat("T", "microseconds")
 
 
 def tsp(dt: datetime) -> str:
-    if dt.tzinfo is None or dt.tzinfo is timezone.utc or dt.tzname() in ("GMT", "UTC"):
+    if dt.tzinfo is None or dt.tzinfo is UTC or dt.tzname() in ("GMT", "UTC"):
         return dt.strftime("%Y-%m-%d %H:%M:%S")
     return dt.isoformat(" ", "seconds")
 
@@ -41,7 +41,7 @@ def parse_ts(s: str) -> datetime:
     return datetime.fromisoformat(s)
 
 
-def zx(s: str | int | float) -> str:
+def zx(s: str | int | float) -> str:  # noqa: PYI041
     if isinstance(s, int):
         return str(s)
     if isinstance(s, float):

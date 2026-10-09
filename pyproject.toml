@@ -17,9 +17,13 @@ dependencies = [
 
 [dependency-groups]
 dev = [
-    "black>=26.1.0",
-    "isort>=8.0.1",
     "mypy>=1.19.1",
     "pyright>=1.1.408",
     "ruff>=0.15.4",
 ]
+
+[tool.ruff]
+line-length = 108
+
+[tool.ruff.lint]
+extend-select = ["I"]

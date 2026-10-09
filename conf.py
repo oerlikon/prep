@@ -99,7 +99,7 @@ def _walk_symbols(
             if symbol.time is not None:
                 symbol.start = symbol.start.replace(tzinfo=tz(symbol.time))
             else:
-                symbol.start = symbol.start.replace(tzinfo=datetime.timezone.utc)
+                symbol.start = symbol.start.replace(tzinfo=datetime.UTC)
         if name is not None:
             if type(name) is not str:
                 raise TypeError

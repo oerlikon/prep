@@ -38,6 +38,12 @@ class Hub:
     def __init__(self) -> None:
         self._clients: set[Feed] = set()
         self._lock = asyncio.Lock()
+        self._tasks: set[asyncio.Task] = set()
+
+    def _drop(self, client: Feed) -> None:
+        task = asyncio.create_task(client.websocket.close(code=1011, reason="client too slow"))
+        self._tasks.add(task)
+        task.add_done_callback(self._tasks.discard)
 
     async def register(self, client: Feed) -> None:
         async with self._lock:
@@ -61,10 +67,7 @@ class Hub:
             try:
                 c.queue.put_nowait(msg)
             except asyncio.QueueFull:
-                try:
-                    asyncio.create_task(c.websocket.close(code=1011, reason="client too slow"))
-                except Exception:
-                    pass
+                self._drop(c)
 
 
 def _encode(blocks: list[Block]) -> str:
@@ -91,7 +94,7 @@ async def handler(
             try:
                 client.queue.put_nowait(msg)
             except asyncio.QueueFull:
-                asyncio.create_task(ws.close(code=1011, reason="client too slow"))
+                await ws.close(code=1011, reason="client too slow")
                 return
 
         relay_task = asyncio.create_task(relay(client))
