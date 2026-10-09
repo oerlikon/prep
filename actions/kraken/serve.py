@@ -332,7 +332,7 @@ class Serve(Cmd):
                     tails, err = await asyncio.to_thread(dl.tails, path, symbol, warmup)
                     if err is not None:
                         await self._queue.put(Result(err=err))
-                        break
+                        return
                     if tails:
                         await self._queue.put(self.LoadedTrades({f"{symbol.market}:{symbol.name}": tails}))
 
